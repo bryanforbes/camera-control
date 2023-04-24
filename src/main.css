@@ -1,0 +1,13 @@
+.main {
+  justify-content: space-between;
+}
+
+.presets {
+  display: flex;
+  flex-direction: column;
+}
+
+.config {
+  display: flex;
+  flex-direction: row-reverse;
+}

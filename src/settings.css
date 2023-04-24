@@ -1,0 +1,25 @@
+.arrows {
+  display: grid;
+  grid-template-columns: 100px 100px 100px;
+  grid-template-rows: 100px 100px 100px;
+  grid-template-areas:
+    '. up .'
+    'left . right'
+    '. down .';
+}
+
+[data-direction='left'] {
+  grid-area: left;
+}
+
+[data-direction='up'] {
+  grid-area: up;
+}
+
+[data-direction='right'] {
+  grid-area: right;
+}
+
+[data-direction='down'] {
+  grid-area: down;
+}

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/settings.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Camera Control Settings</title>
+    <script type="module" src="/settings.ts" defer></script>
+  </head>
+
+  <body>
+    <main class="settings">
+      <h1>Settings</h1>
+
+      <form>
+        <label
+          >Port:
+          <select id="ports"></select
+        ></label>
+      </form>
+
+      <section class="arrows no-port">
+        <button type="button" data-direction="left">Left</button>
+        <button type="button" data-direction="up">Up</button>
+        <button type="button" data-direction="right">Right</button>
+        <button type="button" data-direction="down">Down</button>
+      </section>
+    </main>
+  </body>
+</html>
