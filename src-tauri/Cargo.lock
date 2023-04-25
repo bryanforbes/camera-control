@@ -231,6 +231,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-store",
  "tauri-plugin-window-state",
+ "thiserror",
 ]
 
 [[package]]
