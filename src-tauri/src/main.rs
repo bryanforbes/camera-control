@@ -26,16 +26,15 @@ impl PortState {
         println!("{:?}", path);
         // Drop the previous port implicitly before setting a new one
         *self.port.lock().unwrap() = None;
-        *self.port.lock().unwrap() = match path {
-            Some(path) => Some(PelcoDPort::new(
+        *self.port.lock().unwrap() = path.map(|path| {
+            PelcoDPort::new(
                 serialport::new(path, 9000)
                     .stop_bits(StopBits::One)
                     .data_bits(DataBits::Eight)
                     .open()
                     .expect("Poop"),
-            )),
-            _ => None,
-        }
+            )
+        });
     }
 }
 
@@ -113,12 +112,12 @@ fn main() {
             app.listen_global("port-changed", move |event| {
                 let port_state = app_handle.state::<PortState>();
 
-                port_state.set_port(event.payload().map_or(None, |payload| {
-                    match serde_json::from_str::<&str>(payload) {
-                        Ok(value) => Some(value),
-                        Err(_) => None,
-                    }
-                }))
+                port_state.set_port(
+                    event
+                        .payload()
+                        .map(|payload| serde_json::from_str::<&str>(payload).ok())
+                        .flatten(),
+                )
             });
 
             Ok(())
