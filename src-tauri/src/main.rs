@@ -1,14 +1,11 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::path::PathBuf;
 use std::sync::Mutex;
 
 use pelcodrs::{Direction, Message, MessageBuilder, PelcoDPort, Speed};
-use serde_json::Value as JsonValue;
 use serialport::{DataBits, SerialPort, StopBits};
-use tauri::{Manager, Wry};
-use tauri_plugin_store::{with_store, StoreCollection};
+use tauri::Manager;
 
 struct PortState {
     port: Mutex<Option<PelcoDPort<Box<dyn SerialPort>>>>,
@@ -25,10 +22,12 @@ impl PortState {
             .expect("Something went wrong sending message")
     }
 
-    fn set_port(&self, path: JsonValue) -> () {
+    fn set_port(&self, path: Option<&str>) -> () {
         println!("{:?}", path);
+        // Drop the previous port implicitly before setting a new one
+        *self.port.lock().unwrap() = None;
         *self.port.lock().unwrap() = match path {
-            JsonValue::String(path) => Some(PelcoDPort::new(
+            Some(path) => Some(PelcoDPort::new(
                 serialport::new(path, 9000)
                     .stop_bits(StopBits::One)
                     .data_bits(DataBits::Eight)
@@ -109,26 +108,18 @@ fn main() {
             stop
         ])
         .setup(|app| {
-            app.listen_global("port-changed", |event| {
-                // TODO: how to set the port in the managed state?
-                let payload = event.payload().map_or(JsonValue::Null, |payload| {
-                    serde_json::from_str::<JsonValue>(payload).unwrap_or(JsonValue::Null)
-                });
-                println!("Event: {:?}", payload);
+            let app_handle = app.handle();
+
+            app.listen_global("port-changed", move |event| {
+                let port_state = app_handle.state::<PortState>();
+
+                port_state.set_port(event.payload().map_or(None, |payload| {
+                    match serde_json::from_str::<&str>(payload) {
+                        Ok(value) => Some(value),
+                        Err(_) => None,
+                    }
+                }))
             });
-
-            let port_state = app.state::<PortState>();
-
-            let stores = app.state::<StoreCollection<Wry>>();
-            let path = PathBuf::from("config.json");
-
-            let config_port = with_store(app.handle(), stores, path, |store| {
-                Ok(store.get("port").cloned())
-            })
-            .unwrap_or(None)
-            .unwrap_or(JsonValue::Null);
-
-            port_state.set_port(config_port);
 
             Ok(())
         })
