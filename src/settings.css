@@ -1,11 +1,12 @@
-.arrows {
+.controls {
   display: grid;
-  grid-template-columns: 100px 100px 100px;
-  grid-template-rows: 100px 100px 100px;
+  grid-template-columns: 50px 50px 50px 50px 50px 50px;
+  grid-template-rows: 100px 100px 100px 50px;
   grid-template-areas:
-    '. up .'
-    'left . right'
-    '. down .';
+    '. . up up . .'
+    'left left . . right right'
+    '. . down down . .'
+    'out . . . . in';
 }
 
 [data-direction='left'] {
@@ -22,4 +23,12 @@
 
 [data-direction='down'] {
   grid-area: down;
+}
+
+[data-direction='out'] {
+  grid-area: out;
+}
+
+[data-direction='in'] {
+  grid-area: in;
 }

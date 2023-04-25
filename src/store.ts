@@ -3,9 +3,7 @@ import type { UnlistenFn } from '@tauri-apps/api/event';
 
 const store = new Store('config.json');
 
-export async function onPortChange(
-  callback: (port: string | null) => void
-): Promise<UnlistenFn> {
+export async function onPortChange(callback: (port: string | null) => void): Promise<UnlistenFn> {
   callback(await getPort());
   return store.onKeyChange('port', callback);
 }
