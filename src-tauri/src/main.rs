@@ -65,12 +65,11 @@ fn stop(port_state: tauri::State<PortState>) -> Result<()> {
 }
 
 #[tauri::command]
-fn get_ports() -> Vec<String> {
-    let ports = serialport::available_ports().unwrap_or_else(|_| Vec::new());
-    ports
+fn get_ports() -> Result<Vec<String>> {
+    Ok(serialport::available_ports()?
         .into_iter()
-        .map(|port| port.port_name.into())
-        .collect()
+        .map(|port| port.port_name.to_string())
+        .collect())
 }
 
 fn main() {

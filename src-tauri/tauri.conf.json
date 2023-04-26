@@ -19,9 +19,9 @@
     },
     "allowlist": {
       "all": false,
-      "shell": {
+      "dialog": {
         "all": false,
-        "open": true
+        "message": true
       },
       "window": {
         "create": true,

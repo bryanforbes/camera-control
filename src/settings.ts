@@ -38,15 +38,6 @@ function setupDirectionButton(button: HTMLButtonElement): void {
   });
 }
 
-async function getPorts(): Promise<string[]> {
-  try {
-    return await invoke<string[]>('get_ports');
-  } catch (e) {
-    await displayError(e);
-    return [];
-  }
-}
-
 async function populatePorts(): Promise<void> {
   populating = true;
 
@@ -57,8 +48,17 @@ async function populatePorts(): Promise<void> {
   portSelect.appendChild(document.createElement('option'));
 
   const savedPort = await store.getPort();
+  let ports: string[];
 
-  for (const port of await getPorts()) {
+  try {
+    ports = await invoke<string[]>('get_ports');
+  } catch (e) {
+    await displayError(e);
+    populating = false;
+    return;
+  }
+
+  for (const port of ports) {
     const portOption = document.createElement('option');
 
     if (port === savedPort) {
