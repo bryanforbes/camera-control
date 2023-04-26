@@ -20,15 +20,32 @@
         ></label>
       </form>
 
-      <section class="controls no-port">
-        <button type="button" data-direction="left">Left</button>
-        <button type="button" data-direction="up">Up</button>
-        <button type="button" data-direction="right">Right</button>
-        <button type="button" data-direction="down">Down</button>
+      <div class="controls no-port">
+        <section class="directions">
+          <button type="button" data-direction="left">Left</button>
+          <button type="button" data-direction="up">Up</button>
+          <button type="button" data-direction="right">Right</button>
+          <button type="button" data-direction="down">Down</button>
 
-        <button type="button" data-direction="out">-</button>
-        <button type="button" data-direction="in">+</button>
-      </section>
+          <button type="button" data-direction="out">-</button>
+          <button type="button" data-direction="in">+</button>
+        </section>
+
+        <section class="presets">
+          <button type="button" data-preset-name="Sanctuary" data-preset="1">
+            Set Sanctuary
+          </button>
+          <button type="button" data-preset-name="Stage" data-preset="2">
+            Set Stage
+          </button>
+          <button type="button" data-preset-name="Speaker" data-preset="3">
+            Set Speaker
+          </button>
+          <button type="button" data-preset-name="Baptistry" data-preset="4">
+            Set Baptistry
+          </button>
+        </section>
+      </div>
     </main>
   </body>
 </html>

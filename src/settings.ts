@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import * as store from './store';
 import { displayError, toggleNoPort } from './common';
+import { ask } from '@tauri-apps/api/dialog';
 
 let portSelect: HTMLSelectElement;
 let populating = false;
@@ -73,6 +74,27 @@ async function populatePorts(): Promise<void> {
   populating = false;
 }
 
+async function confirmSetPreset(event: MouseEvent): Promise<void> {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-preset]');
+
+  if (!button) {
+    return;
+  }
+
+  const preset = parseInt(button.dataset['preset']!, 10);
+  const presetName = button.dataset['presetName']!;
+
+  const confirmed = await ask(`Are you sure you want to set ${presetName}?`, { type: 'warning' });
+
+  if (confirmed) {
+    try {
+      await invoke('set_preset', { preset });
+    } catch (e) {
+      await displayError(e);
+    }
+  }
+}
+
 window.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   portSelect = document.querySelector('#ports')!;
 
@@ -94,4 +116,8 @@ window.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   document
     .querySelectorAll<HTMLButtonElement>('.controls [data-direction]')
     .forEach((button) => setupDirectionButton(button));
+
+  document
+    .querySelector('.presets')
+    ?.addEventListener('click', (event) => confirmSetPreset(event as MouseEvent));
 });

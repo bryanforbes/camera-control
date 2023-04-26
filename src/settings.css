@@ -1,12 +1,23 @@
+.settings > form {
+  align-self: center;
+}
+
 .controls {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.directions {
   display: grid;
-  grid-template-columns: 50px 50px 50px 50px 50px 50px;
-  grid-template-rows: 100px 100px 100px 50px;
+  grid-template-columns: repeat(12, 25px);
+  grid-template-rows: repeat(3, 100px) 50px;
   grid-template-areas:
-    '. . up up . .'
-    'left left . . right right'
-    '. . down down . .'
-    'out . . . . in';
+    '.    .    .    .    up   up   up   up   .     .     .     .'
+    'left left left left .    .    .    .    right right right right'
+    '.    .    .    .    down down down down .     .     .     .'
+    '.    out  out  .    .    .    .    .    .     in    in    .';
 }
 
 [data-direction='left'] {
@@ -31,4 +42,10 @@
 
 [data-direction='in'] {
   grid-area: in;
+}
+
+.presets {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }

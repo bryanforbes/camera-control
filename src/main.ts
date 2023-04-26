@@ -29,7 +29,9 @@ async function openSettings(): Promise<void> {
     settingsWindow = new WebviewWindow('settings', {
       url: 'settings.html',
       title: 'Camera Control Settings',
-      resizable: false,
+      acceptFirstMouse: true,
+      width: 600,
+      height: 550,
     });
   }
 }

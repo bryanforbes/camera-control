@@ -21,6 +21,7 @@
       "all": false,
       "dialog": {
         "all": false,
+        "ask": true,
         "message": true
       },
       "window": {
