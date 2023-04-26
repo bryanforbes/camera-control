@@ -1,5 +1,6 @@
 import { resolve } from 'path';
 import { defineConfig } from 'vite';
+import checker from 'vite-plugin-checker';
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
@@ -23,6 +24,7 @@ export default defineConfig(async () => ({
     sourcemap: !!process.env.TAURI_DEBUG,
 
     outDir: '../dist',
+    emptyOutDir: true,
 
     rollupOptions: {
       input: {
@@ -31,4 +33,10 @@ export default defineConfig(async () => ({
       },
     },
   },
+
+  plugins: [
+    checker({
+      typescript: true,
+    }),
+  ],
 }));
