@@ -5,7 +5,7 @@ mod error;
 mod port_state;
 
 use pelcodrs::{Direction, Message, MessageBuilder, Speed};
-use tauri::{AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu};
+use tauri::{AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowEvent};
 use tauri_plugin_window_state::StateFlags;
 
 use crate::error::Result;
@@ -95,6 +95,14 @@ fn main() {
             zoom,
             stop
         ])
+        .on_window_event(|event| match event.event() {
+            WindowEvent::Destroyed => {
+                if event.window().label() == "main" {
+                    std::process::exit(0);
+                }
+            }
+            _ => {}
+        })
         .setup(|app| {
             let app_handle = app.handle();
 
