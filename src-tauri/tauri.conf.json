@@ -54,6 +54,7 @@
         "fullscreen": false,
         "resizable": false,
         "title": "Camera Control",
+        "acceptFirstMouse": true,
         "width": 350,
         "height": 450
       }

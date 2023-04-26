@@ -6,6 +6,7 @@ mod port_state;
 
 use pelcodrs::{Direction, Message, MessageBuilder, Speed};
 use tauri::{AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu};
+use tauri_plugin_window_state::StateFlags;
 
 use crate::error::Result;
 use crate::port_state::PortState;
@@ -76,7 +77,11 @@ fn main() {
     let context = tauri::generate_context!();
     let mut builder = tauri::Builder::default()
         .manage(PortState::new())
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::POSITION)
+                .build(),
+        )
         .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             go_to_preset,
