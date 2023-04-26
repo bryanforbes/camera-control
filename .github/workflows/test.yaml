@@ -51,6 +51,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      - uses: Swatinem/rust-cache@v2
+        name: Set up Rust cache
+        with:
+          workspaces: src-tauri
+
       - name: Install frontend dependencies
         run: pnpm install
 
