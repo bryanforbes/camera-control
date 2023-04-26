@@ -20,32 +20,64 @@
     '.    out  out  .    .    .    .    .    .     in    in    .';
 }
 
+.directions button {
+  padding: 10px;
+}
+
 [data-direction='left'] {
   grid-area: left;
+}
+
+[data-direction='left']::before {
+  content: '\2190';
 }
 
 [data-direction='up'] {
   grid-area: up;
 }
 
+[data-direction='up']::before {
+  content: '\2191';
+}
+
 [data-direction='right'] {
   grid-area: right;
+}
+
+[data-direction='right']::before {
+  content: '\2192';
 }
 
 [data-direction='down'] {
   grid-area: down;
 }
 
+[data-direction='down']::before {
+  content: '\2193';
+}
+
 [data-direction='out'] {
   grid-area: out;
+}
+
+[data-direction='out']::before {
+  content: '-';
 }
 
 [data-direction='in'] {
   grid-area: in;
 }
 
+[data-direction='in']::before {
+  content: '+';
+}
+
 .presets {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+}
+
+[data-preset-name]::before {
+  content: 'Set ' attr(data-preset-name);
 }

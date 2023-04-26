@@ -11,15 +11,28 @@
 
   <body>
     <main class="main">
-      <div class="presets no-port">
-        <button type="button" data-preset="1">Sanctuary</button>
-        <button type="button" data-preset="2">Stage</button>
-        <button type="button" data-preset="3">Speaker</button>
-        <button type="button" data-preset="4">Baptistry</button>
-      </div>
-      <div class="config">
+      <section class="presets" inert>
+        <button
+          type="button"
+          data-preset="1"
+          data-preset-name="Sanctuary"
+        ></button>
+        <button type="button" data-preset="2" data-preset-name="Stage"></button>
+        <button
+          type="button"
+          data-preset="3"
+          data-preset-name="Speaker"
+        ></button>
+        <button
+          type="button"
+          data-preset="4"
+          data-preset-name="Baptistry"
+        ></button>
+      </section>
+      <footer class="footer">
+        <p class="status">Closed</p>
         <button type="button" class="settings">Settings</button>
-      </div>
+      </footer>
     </main>
   </body>
 </html>

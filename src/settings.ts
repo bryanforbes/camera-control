@@ -1,18 +1,24 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import * as store from './store';
-import { displayError, toggleNoPort } from './common';
+import { displayError, toggleControls } from './common';
 import { ask } from '@tauri-apps/api/dialog';
+import { WebviewWindow } from '@tauri-apps/api/window';
 
-let portSelect: HTMLSelectElement;
-let populating = false;
+async function setStatus(status: string): Promise<void> {
+  await WebviewWindow.getByLabel('main')?.emit('status', status);
+}
 
 function setupDirectionButton(button: HTMLButtonElement): void {
   const direction = button.dataset['direction'];
-  const command = direction === 'in' || direction === 'out' ? 'zoom' : 'move_camera';
+  const isZoom = direction === 'in' || direction === 'out';
+  const command = isZoom ? 'zoom' : 'move_camera';
+  const status = `${isZoom ? 'Zooming' : 'Moving'} ${direction}`;
+  const stopStatus = `Done ${isZoom ? 'zooming' : 'moving'}`;
 
   button.addEventListener('pointerdown', async (event) => {
     try {
       await invoke(command, { direction });
+      await setStatus(status);
     } catch (e) {
       await displayError(e);
       return;
@@ -25,6 +31,7 @@ function setupDirectionButton(button: HTMLButtonElement): void {
       async (event) => {
         try {
           await invoke('stop');
+          await setStatus(stopStatus);
         } catch (e) {
           await displayError(e);
         } finally {
@@ -38,6 +45,9 @@ function setupDirectionButton(button: HTMLButtonElement): void {
     button.setPointerCapture(event.pointerId);
   });
 }
+
+let portSelect: HTMLSelectElement;
+let populating = false;
 
 async function populatePorts(): Promise<void> {
   populating = true;
@@ -89,6 +99,7 @@ async function confirmSetPreset(event: MouseEvent): Promise<void> {
   if (confirmed) {
     try {
       await invoke('set_preset', { preset });
+      await setStatus(`${presetName} preset set`);
     } catch (e) {
       await displayError(e);
     }
@@ -100,7 +111,7 @@ window.addEventListener('DOMContentLoaded', async (): Promise<void> => {
 
   await populatePorts();
 
-  store.onPortChange((value) => toggleNoPort('.controls', !value));
+  store.onPortChange((value) => toggleControls('.controls', Boolean(value)));
 
   portSelect.addEventListener('change', async (event) => {
     if (populating) {
@@ -113,9 +124,9 @@ window.addEventListener('DOMContentLoaded', async (): Promise<void> => {
     await store.save();
   });
 
-  document
-    .querySelectorAll<HTMLButtonElement>('.controls [data-direction]')
-    .forEach((button) => setupDirectionButton(button));
+  for (const button of document.querySelectorAll<HTMLButtonElement>('.controls [data-direction]')) {
+    setupDirectionButton(button);
+  }
 
   document
     .querySelector('.presets')

@@ -7,7 +7,21 @@
   flex-direction: column;
 }
 
-.config {
+.footer {
+  align-items: flex-end;
   display: flex;
-  flex-direction: row-reverse;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.status::before {
+  content: 'Status: ';
+}
+
+.status {
+  margin: 0;
+}
+
+[data-preset-name]::before {
+  content: attr(data-preset-name);
 }

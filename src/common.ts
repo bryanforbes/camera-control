@@ -7,6 +7,10 @@ export async function displayError(e: unknown): Promise<void> {
   });
 }
 
-export function toggleNoPort(selector: string, noPort: boolean): void {
-  document.querySelector(selector)?.classList.toggle('no-port', noPort);
+export function toggleControls(parentSelector: string, enabled: boolean): void {
+  const parent = document.querySelector<HTMLElement>(parentSelector);
+
+  if (parent) {
+    parent.inert = !enabled;
+  }
 }

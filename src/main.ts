@@ -2,7 +2,15 @@ import { emit, listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
 import { WebviewWindow } from '@tauri-apps/api/window';
 import * as store from './store';
-import { displayError, toggleNoPort } from './common';
+import { displayError, toggleControls } from './common';
+
+function updateStatus(status: string): void {
+  const element = document.querySelector('.status');
+
+  if (element) {
+    element.textContent = status;
+  }
+}
 
 async function goToPreset(event: MouseEvent): Promise<void> {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-preset]');
@@ -11,10 +19,12 @@ async function goToPreset(event: MouseEvent): Promise<void> {
     return;
   }
 
-  const preset = parseInt(button.dataset['preset'] ?? '1', 10);
+  const preset = parseInt(button.dataset['preset']!, 10);
+  const presetName = button.dataset['presetName']!;
 
   try {
     await invoke('go_to_preset', { preset });
+    updateStatus(presetName);
   } catch (e) {
     await displayError(e);
   }
@@ -32,7 +42,7 @@ async function openSettings(): Promise<void> {
       resizable: false,
       acceptFirstMouse: true,
       width: 600,
-      height: 550,
+      height: 480,
     });
   }
 }
@@ -40,7 +50,7 @@ async function openSettings(): Promise<void> {
 window.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   store.onPortChange((value) => {
     emit('port-changed', value);
-    toggleNoPort('.presets', !value);
+    toggleControls('.presets', Boolean(value));
   });
   document
     .querySelector('.presets')
@@ -48,4 +58,5 @@ window.addEventListener('DOMContentLoaded', async (): Promise<void> => {
 
   document.querySelector('.settings')?.addEventListener('click', () => openSettings());
   listen('open-settings', () => openSettings());
+  listen('status', (event) => updateStatus(event.payload as string));
 });

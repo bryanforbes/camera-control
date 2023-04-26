@@ -11,8 +11,6 @@
 
   <body>
     <main class="settings">
-      <h1>Settings</h1>
-
       <form>
         <label
           >Port:
@@ -20,30 +18,38 @@
         ></label>
       </form>
 
-      <div class="controls no-port">
+      <div class="controls" inert>
         <section class="directions">
-          <button type="button" data-direction="left">Left</button>
-          <button type="button" data-direction="up">Up</button>
-          <button type="button" data-direction="right">Right</button>
-          <button type="button" data-direction="down">Down</button>
+          <button type="button" data-direction="left"></button>
+          <button type="button" data-direction="up"></button>
+          <button type="button" data-direction="right"></button>
+          <button type="button" data-direction="down"></button>
 
-          <button type="button" data-direction="out">-</button>
-          <button type="button" data-direction="in">+</button>
+          <button type="button" data-direction="out"></button>
+          <button type="button" data-direction="in"></button>
         </section>
 
         <section class="presets">
-          <button type="button" data-preset-name="Sanctuary" data-preset="1">
-            Set Sanctuary
-          </button>
-          <button type="button" data-preset-name="Stage" data-preset="2">
-            Set Stage
-          </button>
-          <button type="button" data-preset-name="Speaker" data-preset="3">
-            Set Speaker
-          </button>
-          <button type="button" data-preset-name="Baptistry" data-preset="4">
-            Set Baptistry
-          </button>
+          <button
+            type="button"
+            data-preset="1"
+            data-preset-name="Sanctuary"
+          ></button>
+          <button
+            type="button"
+            data-preset="2"
+            data-preset-name="Stage"
+          ></button>
+          <button
+            type="button"
+            data-preset="3"
+            data-preset-name="Speaker"
+          ></button>
+          <button
+            type="button"
+            data-preset="4"
+            data-preset-name="Baptistry"
+          ></button>
         </section>
       </div>
     </main>

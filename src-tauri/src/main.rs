@@ -11,6 +11,10 @@ use tauri_plugin_window_state::StateFlags;
 use crate::error::Result;
 use crate::port_state::PortState;
 
+fn send_staus(app_handle: &tauri::AppHandle, status: &str) -> () {
+    app_handle.emit_to("main", "status", status).ok();
+}
+
 #[tauri::command]
 fn go_to_preset(port_state: tauri::State<PortState>, preset: u8) -> Result<()> {
     println!("Go To Preset: {}", preset);
@@ -95,17 +99,33 @@ fn main() {
             let app_handle = app.handle();
 
             app.listen_global("port-changed", move |event| {
+                let port = event
+                    .payload()
+                    .map(|payload| serde_json::from_str::<&str>(payload).ok())
+                    .flatten();
+
+                send_staus(
+                    &app_handle,
+                    match port {
+                        Some(_) => "Connecting",
+                        None => "Disconnecting",
+                    },
+                );
+
                 let port_state = app_handle.state::<PortState>();
 
-                if let Err(error) = port_state.set_port(
-                    event
-                        .payload()
-                        .map(|payload| serde_json::from_str::<&str>(payload).ok())
-                        .flatten(),
-                ) {
+                if let Err(error) = port_state.set_port(port) {
                     app_handle
                         .emit_all("port-change-error", error.to_string())
                         .unwrap_or(())
+                } else {
+                    send_staus(
+                        &app_handle,
+                        match port {
+                            Some(_) => "Connected",
+                            None => "Disconnected",
+                        },
+                    )
                 }
             });
 
