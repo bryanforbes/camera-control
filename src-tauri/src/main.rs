@@ -5,7 +5,7 @@ mod error;
 mod port_state;
 
 use pelcodrs::{Direction, Message, MessageBuilder, Speed};
-use tauri::Manager;
+use tauri::{AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu};
 
 use crate::error::Result;
 use crate::port_state::PortState;
@@ -74,7 +74,8 @@ fn get_ports() -> Vec<String> {
 }
 
 fn main() {
-    tauri::Builder::default()
+    let context = tauri::generate_context!();
+    let mut builder = tauri::Builder::default()
         .manage(PortState::new())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -105,7 +106,51 @@ fn main() {
             });
 
             Ok(())
-        })
-        .run(tauri::generate_context!())
+        });
+
+    #[cfg(target_os = "macos")]
+    {
+        let app_name: &str = &context.package_info().name;
+        let menu = Menu::new()
+            .add_submenu(Submenu::new(
+                app_name,
+                Menu::new()
+                    .add_native_item(MenuItem::About(
+                        app_name.to_string(),
+                        AboutMetadata::default(),
+                    ))
+                    .add_native_item(MenuItem::Separator)
+                    .add_item(
+                        CustomMenuItem::new("settings".to_string(), "Settings")
+                            .accelerator("cmd+,"),
+                    )
+                    .add_native_item(MenuItem::Separator)
+                    .add_native_item(MenuItem::Services)
+                    .add_native_item(MenuItem::Separator)
+                    .add_native_item(MenuItem::Hide)
+                    .add_native_item(MenuItem::HideOthers)
+                    .add_native_item(MenuItem::ShowAll)
+                    .add_native_item(MenuItem::Separator)
+                    .add_native_item(MenuItem::Quit),
+            ))
+            .add_submenu(Submenu::new(
+                "Window",
+                Menu::new()
+                    .add_native_item(MenuItem::Minimize)
+                    .add_native_item(MenuItem::Zoom)
+                    .add_native_item(MenuItem::CloseWindow),
+            ));
+        builder = builder
+            .menu(menu)
+            .on_menu_event(|event| match event.menu_item_id() {
+                "settings" => {
+                    event.window().emit("open-settings", "").unwrap_or(());
+                }
+                _ => {}
+            });
+    }
+
+    builder
+        .run(context)
         .expect("error while running tauri application")
 }

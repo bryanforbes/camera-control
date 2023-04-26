@@ -1,4 +1,4 @@
-import { emit } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
 import { WebviewWindow } from '@tauri-apps/api/window';
 import * as store from './store';
@@ -44,4 +44,5 @@ window.addEventListener('DOMContentLoaded', async (): Promise<void> => {
     ?.addEventListener('click', (event) => goToPreset(event as MouseEvent));
 
   document.querySelector('.settings')?.addEventListener('click', () => openSettings());
+  listen('open-settings', () => openSettings());
 });
