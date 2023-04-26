@@ -6,9 +6,9 @@ mod port_state;
 
 use pelcodrs::{Direction, Message, MessageBuilder, Speed};
 use tauri::utils::assets::EmbeddedAssets;
-#[cfg(target_os = "macos")]
-use tauri::{AboutMetadata, CustomMenuItem, Menu, MenuItem, Submenu};
-use tauri::{Context, Manager, WindowEvent, Wry};
+use tauri::{
+    AboutMetadata, Context, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowEvent, Wry,
+};
 use tauri_plugin_window_state::StateFlags;
 
 use crate::error::Result;
