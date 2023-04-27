@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "camera-control"
-version = "23.4.1"
+version = "23.4.2-0"
 dependencies = [
  "pelcodrs",
  "serde",
