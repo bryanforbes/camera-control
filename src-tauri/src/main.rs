@@ -118,6 +118,10 @@ fn create_builder(context: &Context<EmbeddedAssets>) -> tauri::Builder<Wry> {
                         app_name.to_string(),
                         AboutMetadata::default(),
                     ))
+                    .add_item(CustomMenuItem::new(
+                        "check-for-updates".to_string(),
+                        "Check for updates...",
+                    ))
                     .add_native_item(MenuItem::Separator)
                     .add_item(
                         CustomMenuItem::new("settings".to_string(), "Settings")
@@ -145,6 +149,9 @@ fn create_builder(context: &Context<EmbeddedAssets>) -> tauri::Builder<Wry> {
             .on_menu_event(|event| match event.menu_item_id() {
                 "settings" => {
                     event.window().emit("open-settings", "").unwrap_or(());
+                }
+                "check-for-updates" => {
+                    event.window().trigger("tauri://update", None);
                 }
                 _ => {}
             })
