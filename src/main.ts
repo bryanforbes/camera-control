@@ -12,6 +12,33 @@ function updateStatus(status: string): void {
   }
 }
 
+const commands = {
+  power: 'camera_power',
+  autofocus: 'autofocus',
+} as const;
+
+const statuses = {
+  power: 'Power',
+  autofocus: 'Autofocus',
+} as const;
+
+async function handleControl(event: MouseEvent): Promise<void> {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-function]');
+
+  if (!button) {
+    return;
+  }
+
+  const [func, state] = button.dataset['function']!.split('-') as ['power' | 'autofocus', string];
+
+  try {
+    await invoke(commands[func], { state: state == 'on' });
+    updateStatus(`${statuses[func]} ${state}`);
+  } catch (e) {
+    await displayError(e);
+  }
+}
+
 async function goToPreset(event: MouseEvent): Promise<void> {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-preset]');
 
@@ -50,8 +77,14 @@ async function openSettings(): Promise<void> {
 window.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   store.onPortChange((value) => {
     emit('port-changed', value);
+    toggleControls('.controls', Boolean(value));
     toggleControls('.presets', Boolean(value));
   });
+
+  document
+    .querySelector('.controls')
+    ?.addEventListener('click', (event) => handleControl(event as MouseEvent));
+
   document
     .querySelector('.presets')
     ?.addEventListener('click', (event) => goToPreset(event as MouseEvent));

@@ -7,6 +7,21 @@
   flex-direction: column;
 }
 
+.controls,
+.presets {
+  column-gap: 4px;
+  row-gap: 4px;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    'power-on  . autofocus-on'
+    'power-off . autofocus-off';
+}
+
 .footer {
   align-items: flex-end;
   display: flex;
@@ -20,6 +35,26 @@
 
 .status {
   margin: 0;
+}
+
+[data-function^='power-'] {
+  padding: 10px;
+}
+
+[data-function='power-on'] {
+  grid-area: power-on;
+}
+
+[data-function='power-off'] {
+  grid-area: power-off;
+}
+
+[data-function='autofocus-on'] {
+  grid-area: autofocus-on;
+}
+
+[data-function='autofocus-off'] {
+  grid-area: autofocus-off;
 }
 
 [data-preset-name]::before {

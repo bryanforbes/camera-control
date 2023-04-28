@@ -20,6 +20,13 @@
     '.    out  out  .    .    .    .    .    .     in    in    .';
 }
 
+.controls,
+.directions,
+.presets {
+  column-gap: 4px;
+  row-gap: 4px;
+}
+
 .directions button {
   padding: 10px;
 }

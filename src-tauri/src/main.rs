@@ -4,7 +4,7 @@
 mod error;
 mod port_state;
 
-use pelcodrs::{Direction, Message, MessageBuilder, Speed};
+use pelcodrs::{AutoCtrl, Direction, Message, MessageBuilder, Speed};
 use tauri::utils::assets::EmbeddedAssets;
 use tauri::{
     AboutMetadata, Context, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowEvent, Wry,
@@ -16,6 +16,31 @@ use crate::port_state::PortState;
 
 fn send_staus(app_handle: &tauri::AppHandle, status: &str) -> () {
     app_handle.emit_to("main", "status", status).ok();
+}
+
+#[tauri::command]
+fn camera_power(port_state: tauri::State<PortState>, state: bool) -> Result<()> {
+    println!("Power: {}", state);
+
+    let mut builder = MessageBuilder::new(1);
+
+    if state {
+        builder = *builder.camera_on();
+    } else {
+        builder = *builder.camera_off();
+    }
+
+    port_state.send_message(builder.finalize()?)
+}
+
+#[tauri::command]
+fn autofocus(port_state: tauri::State<PortState>, state: bool) -> Result<()> {
+    println!("Autofocus: {}", state);
+
+    port_state.send_message(Message::auto_focus(
+        1,
+        if state { AutoCtrl::Auto } else { AutoCtrl::Off },
+    )?)
 }
 
 #[tauri::command]
@@ -140,6 +165,8 @@ fn main() {
         )
         .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
+            camera_power,
+            autofocus,
             go_to_preset,
             set_preset,
             get_ports,
