@@ -1,6 +1,6 @@
 [package]
 name = "camera-control"
-version = "23.4.3-0"
+version = "23.4.3"
 description = "A Tauri App"
 authors = ["you"]
 license = ""
