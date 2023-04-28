@@ -145,6 +145,7 @@ fn create_builder(context: &Context<EmbeddedAssets>) -> tauri::Builder<Wry> {
             ));
 
         builder
+            .updater_target("darwin-universal")
             .menu(menu)
             .on_menu_event(|event| match event.menu_item_id() {
                 "settings" => {
