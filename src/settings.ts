@@ -1,6 +1,5 @@
-import { invoke } from '@tauri-apps/api/tauri';
 import * as store from './store';
-import { displayError, toggleControls } from './common';
+import { displayError, invoke, toggleControls } from './common';
 import { ask } from '@tauri-apps/api/dialog';
 import { WebviewWindow } from '@tauri-apps/api/window';
 
@@ -13,12 +12,13 @@ function setupDirectionButton(button: HTMLButtonElement): void {
   const isZoom = direction === 'in' || direction === 'out';
   const command = isZoom ? 'zoom' : 'move_camera';
   const status = `${isZoom ? 'Zooming' : 'Moving'} ${direction}`;
+  const statusSetter = () => setStatus(status);
   const stopStatus = `Done ${isZoom ? 'zooming' : 'moving'}`;
+  const stopStatusSetter = () => setStatus(stopStatus);
 
   button.addEventListener('pointerdown', async (event) => {
     try {
-      await invoke(command, { direction });
-      await setStatus(status);
+      await invoke(command, { direction }, statusSetter);
     } catch (e) {
       await displayError(e);
       return;
@@ -30,8 +30,7 @@ function setupDirectionButton(button: HTMLButtonElement): void {
       'pointerup',
       async (event) => {
         try {
-          await invoke('stop');
-          await setStatus(stopStatus);
+          await invoke('stop', undefined, stopStatusSetter);
         } catch (e) {
           await displayError(e);
         } finally {
@@ -98,8 +97,7 @@ async function confirmSetPreset(event: MouseEvent): Promise<void> {
 
   if (confirmed) {
     try {
-      await invoke('set_preset', { preset });
-      await setStatus(`${presetName} preset set`);
+      await invoke('set_preset', { preset }, () => setStatus(`${presetName} preset set`));
     } catch (e) {
       await displayError(e);
     }

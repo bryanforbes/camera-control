@@ -1,8 +1,7 @@
 import { emit, listen } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api/tauri';
 import { WebviewWindow } from '@tauri-apps/api/window';
 import * as store from './store';
-import { displayError, toggleControls } from './common';
+import { displayError, toggleControls, invoke } from './common';
 
 function updateStatus(status: string): void {
   const element = document.querySelector('.status');
@@ -32,8 +31,9 @@ async function handleControl(event: MouseEvent): Promise<void> {
   const [func, state] = button.dataset['function']!.split('-') as ['power' | 'autofocus', string];
 
   try {
-    await invoke(commands[func], { state: state == 'on' });
-    updateStatus(`${statuses[func]} ${state}`);
+    await invoke(commands[func], { state: state == 'on' }, () =>
+      updateStatus(`${statuses[func]} ${state}`)
+    );
   } catch (e) {
     await displayError(e);
   }
@@ -50,8 +50,7 @@ async function goToPreset(event: MouseEvent): Promise<void> {
   const presetName = button.dataset['presetName']!;
 
   try {
-    await invoke('go_to_preset', { preset });
-    updateStatus(presetName);
+    await invoke('go_to_preset', { preset }, () => updateStatus(presetName));
   } catch (e) {
     await displayError(e);
   }
