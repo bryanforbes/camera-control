@@ -19,6 +19,12 @@ jobs:
           - platform: macos-latest
             rust-targets: 'aarch64-apple-darwin, x86_64-apple-darwin'
             tauri-args: '--target universal-apple-darwin'
+          - platform: windows-latest
+            rust-targets: 'x86_64-pc-windows-msvc'
+            tauri-args: '--target x86_64-pc-windows-msvc'
+          - platform: windows-latest
+            rust-targets: 'aarch64-pc-windows-msvc'
+            tauri-args: '--target aarch64-pc-windows-msvc'
 
     runs-on: ${{ matrix.platform }}
     steps:
