@@ -15,22 +15,19 @@ jobs:
       fail-fast: false
       matrix:
         platform: [macos-latest, ubuntu-20.04, windows-latest]
+        include:
+          - platform: macos-latest
+            rust-targets: 'aarch64-apple-darwin, x86_64-apple-darwin'
+            tauri-args: '--target universal-apple-darwin'
 
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v3
 
-      - uses: haya14busa/action-cond@v1
-        id: rust-targets
-        with:
-          cond: ${{ matrix.platform == 'macos-latest' }}
-          if_true: 'aarch64-apple-darwin, x86_64-apple-darwin'
-          if_false: ''
-
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ steps.rust-targets.outputs.value }}
+          targets: ${{ matrix.rust-targets }}
 
       - uses: pnpm/action-setup@v2
         name: Install pnpm
@@ -59,15 +56,8 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - uses: haya14busa/action-cond@v1
-        id: tauri-build-args
-        with:
-          cond: ${{ matrix.platform == 'macos-latest' }}
-          if_true: '--target universal-apple-darwin'
-          if_false: ''
-
       - uses: tauri-apps/tauri-action@dev
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: ${{ steps.tauri-build-args.outputs.value }}
+          args: ${{ matrix.tauri-args }}
