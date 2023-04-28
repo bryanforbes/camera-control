@@ -1,4 +1,5 @@
 {
+  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build",
@@ -46,9 +47,6 @@
       "csp": "default-src 'self'",
       "freezePrototype": true
     },
-    "updater": {
-      "active": false
-    },
     "windows": [
       {
         "fullscreen": false,
@@ -58,6 +56,13 @@
         "width": 350,
         "height": 450
       }
-    ]
+    ],
+    "updater": {
+      "active": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkxOTUxRkM5QkY1QzQ2N0QKUldSOVJseS95UitWa1NvNXp6Z1N1VUF6YXVCZzUwTTdMV3NPTldIdEF6cno3d0x4MHczdGJwK0sK",
+      "endpoints": [
+        "https://github.com/bryanforbes/camera-control/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

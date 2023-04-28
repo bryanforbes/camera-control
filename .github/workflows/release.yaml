@@ -1,4 +1,5 @@
-name: 'release'
+name: release
+run-name: Release ${{ github.ref_name }}
 on:
   push:
     tags:
@@ -66,6 +67,8 @@ jobs:
       - uses: tauri-apps/tauri-action@dev
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
           args: ${{ steps.tauri-build-args.outputs.value }}
           tagName: ${{ github.ref_name }}
