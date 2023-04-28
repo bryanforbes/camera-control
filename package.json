@@ -1,7 +1,7 @@
 {
   "name": "camera-control",
   "private": true,
-  "version": "23.4.5-0",
+  "version": "23.4.5",
   "type": "module",
   "scripts": {
     "dev": "vite -c vite.config.ts src",
