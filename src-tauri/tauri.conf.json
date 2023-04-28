@@ -9,7 +9,7 @@
   },
   "package": {
     "productName": "Camera Control",
-    "version": "23.4.6-0"
+    "version": "23.4.6"
   },
   "tauri": {
     "pattern": {
