@@ -4,7 +4,7 @@ on:
     branches:
       - master
     paths-ignore:
-      - '.gihub/workflows/release.yaml'
+      - '.github/workflows/release.yaml'
       - 'README.md'
       - 'LICENSE'
   pull_request:
