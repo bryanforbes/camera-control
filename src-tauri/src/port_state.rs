@@ -1,11 +1,13 @@
-use pelcodrs::{Message, PelcoDPort};
-use serialport::{DataBits, SerialPort, StopBits};
-use std::sync::Mutex;
+use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
+use std::{sync::Mutex, time::Duration};
 
-use crate::error::{Error, Result};
+use crate::{
+    error::{Error, Result},
+    visca::{Command, Inquiry, ViscaPort},
+};
 
 pub struct PortState {
-    port: Mutex<Option<PelcoDPort<Box<dyn SerialPort>>>>,
+    port: Mutex<Option<ViscaPort<Box<dyn SerialPort>>>>,
 }
 
 impl PortState {
@@ -14,9 +16,17 @@ impl PortState {
             port: Default::default(),
         }
     }
-    pub fn send_message(&self, message: Message) -> Result<()> {
+
+    pub fn execute<C: Command>(&self, address: u8, command: C) -> Result<()> {
         match self.port.lock().unwrap().as_mut() {
-            Some(port) => Ok(port.send_message(message)?),
+            Some(port) => Ok(port.execute(address, command)?),
+            None => Err(Error::NoPortSet),
+        }
+    }
+
+    pub fn inquire<R: Inquiry>(&self, address: u8) -> Result<R> {
+        match self.port.lock().unwrap().as_mut() {
+            Some(port) => Ok(port.inquire::<R>(address)?),
             None => Err(Error::NoPortSet),
         }
     }
@@ -28,10 +38,13 @@ impl PortState {
         *self.port.lock().unwrap() = None;
 
         if let Some(path) = path {
-            *self.port.lock().unwrap() = Some(PelcoDPort::new(
+            *self.port.lock().unwrap() = Some(ViscaPort::new(
                 serialport::new(path, 9000)
-                    .stop_bits(StopBits::One)
                     .data_bits(DataBits::Eight)
+                    .flow_control(FlowControl::None)
+                    .parity(Parity::None)
+                    .stop_bits(StopBits::One)
+                    .timeout(Duration::from_secs(1))
                     .open()?,
             ));
         }

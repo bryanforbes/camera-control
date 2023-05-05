@@ -6,10 +6,13 @@ pub enum Error {
     NoPortSet,
 
     #[error(transparent)]
+    Io(#[from] std::io::Error),
+
+    #[error(transparent)]
     SerialPort(#[from] serialport::Error),
 
     #[error(transparent)]
-    PelcoD(#[from] pelcodrs::Error),
+    Visca(#[from] crate::visca::Error),
 }
 
 impl serde::Serialize for Error {

@@ -3,8 +3,8 @@
 
 mod error;
 mod port_state;
+mod visca;
 
-use pelcodrs::{AutoCtrl, Direction, Message, MessageBuilder, Speed};
 use tauri::utils::assets::EmbeddedAssets;
 use tauri::{
     AboutMetadata, Context, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowEvent, Wry,
@@ -13,6 +13,7 @@ use tauri_plugin_window_state::StateFlags;
 
 use crate::error::Result;
 use crate::port_state::PortState;
+use crate::visca::{Autofocus, Move, Power, Preset, Zoom};
 
 fn send_staus(app_handle: &tauri::AppHandle, status: &str) -> () {
     app_handle.emit_to("main", "status", status).ok();
@@ -22,79 +23,81 @@ fn send_staus(app_handle: &tauri::AppHandle, status: &str) -> () {
 fn camera_power(port_state: tauri::State<PortState>, state: bool) -> Result<()> {
     println!("Power: {}", state);
 
-    let mut builder = MessageBuilder::new(1);
+    port_state.execute(1, Power::from(state))?;
 
-    if state {
-        builder = *builder.camera_on();
-    } else {
-        builder = *builder.camera_off();
-    }
-
-    port_state.send_message(builder.finalize()?)
+    Ok(())
 }
 
 #[tauri::command]
 fn autofocus(port_state: tauri::State<PortState>, state: bool) -> Result<()> {
     println!("Autofocus: {}", state);
 
-    port_state.send_message(Message::auto_focus(
-        1,
-        if state { AutoCtrl::Auto } else { AutoCtrl::Off },
-    )?)
+    port_state.execute(1, Autofocus::from(state))?;
+
+    Ok(())
 }
 
 #[tauri::command]
 fn go_to_preset(port_state: tauri::State<PortState>, preset: u8) -> Result<()> {
     println!("Go To Preset: {}", preset);
 
-    port_state.send_message(Message::go_to_preset(1, preset)?)
+    port_state.execute(1, Preset::Recall(preset))?;
+
+    Ok(())
 }
 
 #[tauri::command]
 fn set_preset(port_state: tauri::State<PortState>, preset: u8) -> Result<()> {
     println!("Set Preset: {}", preset);
 
-    port_state.send_message(Message::set_preset(1, preset)?)
+    port_state.execute(1, Preset::Set(preset))?;
+
+    Ok(())
 }
 
 #[tauri::command]
 fn move_camera(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
     println!("Direction: {}", direction);
 
-    port_state.send_message(
-        MessageBuilder::new(1)
-            .pan(Speed::Range(0.01))
-            .tilt(Speed::Range(0.01))
-            .direction(match direction {
-                "left" => Direction::LEFT,
-                "up" => Direction::UP,
-                "right" => Direction::RIGHT,
-                &_ => Direction::DOWN,
-            })
-            .finalize()?,
-    )
+    port_state.execute(
+        1,
+        match direction {
+            "left" => Move::Left(1),
+            "right" => Move::Right(1),
+            "up" => Move::Up(1),
+            "down" => Move::Down(1),
+            _ => Move::Stop,
+        },
+    )?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_move(port_state: tauri::State<PortState>) -> Result<()> {
+    println!("Stop Move");
+
+    port_state.execute(1, Move::Stop)?;
+
+    Ok(())
 }
 
 #[tauri::command]
 fn zoom(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
     println!("Zoom: {}", direction);
 
-    let mut builder = MessageBuilder::new(1);
+    port_state.execute(1, Zoom::from(direction))?;
 
-    if direction == "in" {
-        builder = *builder.zoom_in();
-    } else {
-        builder = *builder.zoom_out();
-    }
-
-    port_state.send_message(builder.finalize()?)
+    Ok(())
 }
 
 #[tauri::command]
-fn stop(port_state: tauri::State<PortState>) -> Result<()> {
-    println!("Stop");
+fn stop_zoom(port_state: tauri::State<PortState>) -> Result<()> {
+    println!("Stop Zoom");
 
-    port_state.send_message(MessageBuilder::new(1).stop().finalize()?)
+    port_state.execute(1, Zoom::Stop)?;
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -179,8 +182,9 @@ fn main() {
             set_preset,
             get_ports,
             move_camera,
+            stop_move,
             zoom,
-            stop
+            stop_zoom,
         ])
         .on_window_event(|event| match event.event() {
             WindowEvent::Destroyed => {
@@ -194,14 +198,14 @@ fn main() {
             let app_handle = app.handle();
 
             app.listen_global("port-changed", move |event| {
-                let port = event
+                let port_name = event
                     .payload()
                     .map(|payload| serde_json::from_str::<&str>(payload).ok())
                     .flatten();
 
                 send_staus(
                     &app_handle,
-                    match port {
+                    match port_name {
                         Some(_) => "Connecting",
                         None => "Disconnecting",
                     },
@@ -209,18 +213,18 @@ fn main() {
 
                 let port_state = app_handle.state::<PortState>();
 
-                if let Err(error) = port_state.set_port(port) {
+                if let Err(error) = port_state.set_port(port_name) {
                     app_handle
                         .emit_all("port-change-error", error.to_string())
-                        .unwrap_or(())
+                        .unwrap_or(());
                 } else {
                     send_staus(
                         &app_handle,
-                        match port {
+                        match port_name {
                             Some(_) => "Connected",
                             None => "Disconnected",
                         },
-                    )
+                    );
                 }
             });
 
