@@ -58,7 +58,7 @@ pub trait Inquiry: Command {
     fn transform_inquiry_response(response: &Response) -> Result<Self>;
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug)]
 pub enum Power {
     On = 0x02,
     Off = 0x03,
@@ -94,7 +94,7 @@ impl From<bool> for Power {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Zoom {
     Tele = 0x02,
     Wide = 0x03,
@@ -120,7 +120,7 @@ impl From<&str> for Zoom {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug)]
 pub enum Autofocus {
     Auto = 0x02,
     Manual = 0x03,
@@ -155,7 +155,7 @@ impl From<bool> for Autofocus {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Focus {
     Stop = 0x00,
     Far = 0x02,
@@ -259,7 +259,10 @@ mod tests {
 
     #[test]
     fn test_power_command_invalid_address() {
-        Power::On.to_command_bytes(8).expect_err("invalid address");
+        assert_matches!(
+            Power::On.to_command_bytes(8).unwrap_err(),
+            Error::InvalidAddress
+        );
     }
 
     #[test]
@@ -270,21 +273,31 @@ mod tests {
 
     #[test]
     fn test_power_inquiry_transform_response() -> Result<()> {
-        assert_eq!(
-            Power::transform_inquiry_response(&Response::new(vec![0x90, 0x50, 0x02, 0xFF]))?,
+        assert_matches!(
+            Power::transform_inquiry_response(&Response::new(vec![0x90, 0x50, 0x02, 0xFF])?)?,
             Power::On
         );
-        assert_eq!(
-            Power::transform_inquiry_response(&Response::new(vec![0x90, 0x50, 0x03, 0xFF]))?,
+        assert_matches!(
+            Power::transform_inquiry_response(&Response::new(vec![0x90, 0x50, 0x03, 0xFF])?)?,
             Power::Off
         );
         Ok(())
     }
 
     #[test]
-    fn test_power_inquiry_transform_response_invalid_response() {
-        Power::transform_inquiry_response(&Response::new(vec![0x90, 0x50, 0x00, 0xFF]))
-            .expect_err("invalid response");
+    fn test_power_inquiry_transform_response_invalid_response() -> Result<()> {
+        assert_matches!(
+            Power::transform_inquiry_response(&Response::new(vec![0x90, 0x50, 0x00, 0xFF])?)
+                .unwrap_err(),
+            Error::InvalidResponse
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_power_from() {
+        assert_matches!(Power::from(true), Power::On);
+        assert_matches!(Power::from(false), Power::Off);
     }
 
     #[test]
@@ -306,7 +319,17 @@ mod tests {
 
     #[test]
     fn test_zoom_command_invalid_address() {
-        Zoom::Tele.to_command_bytes(8).expect_err("invalid address");
+        assert_matches!(
+            Zoom::Tele.to_command_bytes(8).unwrap_err(),
+            Error::InvalidAddress
+        );
+    }
+
+    #[test]
+    fn test_zoom_from() {
+        assert_matches!(Zoom::from("in"), Zoom::Tele);
+        assert_matches!(Zoom::from("out"), Zoom::Wide);
+        assert_matches!(Zoom::from("anything else"), Zoom::Stop);
     }
 
     #[test]
@@ -324,28 +347,39 @@ mod tests {
 
     #[test]
     fn test_autofocus_command_invalid_address() {
-        Autofocus::Auto
-            .to_command_bytes(8)
-            .expect_err("invalid address");
+        assert_matches!(
+            Autofocus::Auto.to_command_bytes(8).unwrap_err(),
+            Error::InvalidAddress
+        );
     }
 
     #[test]
     fn test_autofocus_inquiry_transform_response() -> Result<()> {
-        assert_eq!(
-            Autofocus::transform_inquiry_response(&Response::new(vec![0x90, 0x50, 0x02, 0xFF]))?,
+        assert_matches!(
+            Autofocus::transform_inquiry_response(&Response::new(vec![0x90, 0x50, 0x02, 0xFF])?)?,
             Autofocus::Auto
         );
-        assert_eq!(
-            Autofocus::transform_inquiry_response(&Response::new(vec![0x90, 0x50, 0x03, 0xFF]))?,
+        assert_matches!(
+            Autofocus::transform_inquiry_response(&Response::new(vec![0x90, 0x50, 0x03, 0xFF])?)?,
             Autofocus::Manual
         );
         Ok(())
     }
 
     #[test]
-    fn test_autofocus_inquiry_transform_response_invalid_response() {
-        Autofocus::transform_inquiry_response(&Response::new(vec![0x90, 0x50, 0x00, 0xFF]))
-            .expect_err("invalid response");
+    fn test_autofocus_inquiry_transform_response_invalid_response() -> Result<()> {
+        assert_matches!(
+            Autofocus::transform_inquiry_response(&Response::new(vec![0x90, 0x50, 0x00, 0xFF])?)
+                .unwrap_err(),
+            Error::InvalidResponse
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_autofocus_from() {
+        assert_matches!(Autofocus::from(true), Autofocus::Auto);
+        assert_matches!(Autofocus::from(false), Autofocus::Manual);
     }
 
     #[test]
@@ -367,9 +401,17 @@ mod tests {
 
     #[test]
     fn test_focus_command_invalid_address() {
-        Focus::Stop
-            .to_command_bytes(8)
-            .expect_err("invalid address");
+        assert_matches!(
+            Focus::Stop.to_command_bytes(8).unwrap_err(),
+            Error::InvalidAddress
+        );
+    }
+
+    #[test]
+    fn test_focus_from() {
+        assert_matches!(Focus::from("near"), Focus::Near);
+        assert_matches!(Focus::from("far"), Focus::Far);
+        assert_matches!(Focus::from("anything else"), Focus::Stop);
     }
 
     #[test]
@@ -395,9 +437,18 @@ mod tests {
 
     #[test]
     fn test_preset_command_invalid_address() {
-        Preset::Set(1)
-            .to_command_bytes(8)
-            .expect_err("invalid address");
+        assert_matches!(
+            Preset::Set(1).to_command_bytes(8).unwrap_err(),
+            Error::InvalidAddress
+        );
+    }
+
+    #[test]
+    fn test_preset_command_invalid_preset() {
+        assert_matches!(
+            Preset::Set(0x10).to_command_bytes(1).unwrap_err(),
+            Error::InvalidPreset
+        );
     }
 
     #[test]
@@ -427,32 +478,45 @@ mod tests {
 
     #[test]
     fn test_move_command_invalid_address() {
-        Move::Stop.to_command_bytes(8).expect_err("invalid address");
+        assert_matches!(
+            Move::Stop.to_command_bytes(8).unwrap_err(),
+            Error::InvalidAddress
+        );
     }
 
     #[test]
     fn test_move_command_invalid_speed() {
-        Move::Up(0).to_command_bytes(1).expect_err("invalid speed");
-        Move::Up(0x15)
-            .to_command_bytes(1)
-            .expect_err("invalid speed");
-        Move::Down(0)
-            .to_command_bytes(1)
-            .expect_err("invalid speed");
-        Move::Down(0x15)
-            .to_command_bytes(1)
-            .expect_err("invalid speed");
-        Move::Left(0)
-            .to_command_bytes(1)
-            .expect_err("invalid speed");
-        Move::Left(0x19)
-            .to_command_bytes(1)
-            .expect_err("invalid speed");
-        Move::Right(0)
-            .to_command_bytes(1)
-            .expect_err("invalid speed");
-        Move::Right(0x19)
-            .to_command_bytes(1)
-            .expect_err("invalid speed");
+        assert_matches!(
+            Move::Up(0).to_command_bytes(1).unwrap_err(),
+            Error::InvalidSpeed
+        );
+        assert_matches!(
+            Move::Up(0x15).to_command_bytes(1).unwrap_err(),
+            Error::InvalidSpeed
+        );
+        assert_matches!(
+            Move::Down(0).to_command_bytes(1).unwrap_err(),
+            Error::InvalidSpeed
+        );
+        assert_matches!(
+            Move::Down(0x15).to_command_bytes(1).unwrap_err(),
+            Error::InvalidSpeed
+        );
+        assert_matches!(
+            Move::Left(0).to_command_bytes(1).unwrap_err(),
+            Error::InvalidSpeed
+        );
+        assert_matches!(
+            Move::Left(0x19).to_command_bytes(1).unwrap_err(),
+            Error::InvalidSpeed
+        );
+        assert_matches!(
+            Move::Right(0).to_command_bytes(1).unwrap_err(),
+            Error::InvalidSpeed
+        );
+        assert_matches!(
+            Move::Right(0x19).to_command_bytes(1).unwrap_err(),
+            Error::InvalidSpeed
+        );
     }
 }

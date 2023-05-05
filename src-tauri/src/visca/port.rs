@@ -21,12 +21,12 @@ where
         self.reader.get_mut().write_all(packet)?;
 
         let response = self.receive_response(address)?;
-        if let ResponseKind::Completion = response.kind()? {
+        if let ResponseKind::Completion = response.kind() {
             return Ok(response);
         }
 
         let response = self.receive_response(address)?;
-        if let ResponseKind::Completion = response.kind()? {
+        if let ResponseKind::Completion = response.kind() {
             Ok(response)
         } else {
             Err(Error::InvalidResponse)
@@ -38,7 +38,7 @@ where
             let mut bytes: Vec<u8> = vec![];
             self.reader.read_until(0xFF, &mut bytes)?;
 
-            let response = Response::new(bytes);
+            let response = Response::new(bytes)?;
             if response.address() == address {
                 return Ok(response);
             }

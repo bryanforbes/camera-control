@@ -29,8 +29,8 @@ pub enum Error {
     #[error("command not executable")]
     CommandNotExecutable,
 
-    #[error("unknown message error")]
-    UnknownMessageError,
+    #[error("unknown error")]
+    UnknownError,
 
     #[error("invalid response")]
     InvalidResponse,
