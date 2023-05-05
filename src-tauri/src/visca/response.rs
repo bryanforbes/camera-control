@@ -85,53 +85,44 @@ mod tests {
 
     #[test]
     fn test_new_errors() {
+        assert_matches!(Response::new(Vec::new()), Err(Error::InvalidResponse));
+        assert_matches!(Response::new(vec![0x90]), Err(Error::InvalidResponse));
+        assert_matches!(Response::new(vec![0x90, 0xFF]), Err(Error::InvalidResponse));
         assert_matches!(
-            Response::new(Vec::new()).unwrap_err(),
-            Error::InvalidResponse
+            Response::new(vec![0x90, 0x00, 0xFF]),
+            Err(Error::InvalidResponse)
         );
         assert_matches!(
-            Response::new(vec![0x90]).unwrap_err(),
-            Error::InvalidResponse
+            Response::new(vec![0x90, 0x60, 0xFF]),
+            Err(Error::InvalidResponse)
         );
         assert_matches!(
-            Response::new(vec![0x90, 0xFF]).unwrap_err(),
-            Error::InvalidResponse
+            Response::new(vec![0x90, 0x60, 0x01, 0xFF]),
+            Err(Error::InvalidMessageLength)
         );
         assert_matches!(
-            Response::new(vec![0x90, 0x00, 0xFF]).unwrap_err(),
-            Error::InvalidResponse
+            Response::new(vec![0x90, 0x60, 0x02, 0xFF]),
+            Err(Error::SyntaxError)
         );
         assert_matches!(
-            Response::new(vec![0x90, 0x60, 0xFF]).unwrap_err(),
-            Error::InvalidResponse
+            Response::new(vec![0x90, 0x60, 0x03, 0xFF]),
+            Err(Error::CommandBufferFull)
         );
         assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x01, 0xFF]).unwrap_err(),
-            Error::InvalidMessageLength
+            Response::new(vec![0x90, 0x60, 0x04, 0xFF]),
+            Err(Error::CommandCanceled)
         );
         assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x02, 0xFF]).unwrap_err(),
-            Error::SyntaxError
+            Response::new(vec![0x90, 0x60, 0x05, 0xFF]),
+            Err(Error::NoSocket)
         );
         assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x03, 0xFF]).unwrap_err(),
-            Error::CommandBufferFull
+            Response::new(vec![0x90, 0x60, 0x41, 0xFF]),
+            Err(Error::CommandNotExecutable)
         );
         assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x04, 0xFF]).unwrap_err(),
-            Error::CommandCanceled
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x05, 0xFF]).unwrap_err(),
-            Error::NoSocket
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x41, 0xFF]).unwrap_err(),
-            Error::CommandNotExecutable
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x06, 0xFF]).unwrap_err(),
-            Error::UnknownError
+            Response::new(vec![0x90, 0x60, 0x06, 0xFF]),
+            Err(Error::UnknownError)
         );
     }
 
@@ -148,25 +139,18 @@ mod tests {
 
     #[test]
     fn test_payload() {
-        assert_eq!(
-            Vec::from(Response::new(vec![0x90, 0x41, 0xFF]).unwrap().payload()),
-            Vec::<u8>::new()
+        assert_matches!(Response::new(vec![0x90, 0x41, 0xFF]).unwrap().payload(), []);
+        assert_matches!(
+            Response::new(vec![0x90, 0x50, 0x02, 0xFF])
+                .unwrap()
+                .payload(),
+            [0x02]
         );
-        assert_eq!(
-            Vec::from(
-                Response::new(vec![0x90, 0x50, 0x02, 0xFF])
-                    .unwrap()
-                    .payload()
-            ),
-            Vec::<u8>::from([0x02])
-        );
-        assert_eq!(
-            Vec::from(
-                Response::new(vec![0x90, 0x50, 0x02, 0x03, 0xFF])
-                    .unwrap()
-                    .payload()
-            ),
-            Vec::<u8>::from([0x02, 0x03])
+        assert_matches!(
+            Response::new(vec![0x90, 0x50, 0x02, 0x03, 0xFF])
+                .unwrap()
+                .payload(),
+            [0x02, 0x03]
         );
     }
 }
