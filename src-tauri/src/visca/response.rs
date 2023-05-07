@@ -1,4 +1,4 @@
-use super::{Error, Result};
+use super::{Error, Packet};
 
 #[derive(Clone, Copy, Debug)]
 pub enum ResponseKind {
@@ -6,46 +6,40 @@ pub enum ResponseKind {
     Completion,
 }
 
-#[derive(Debug)]
-pub struct Response {
-    kind: ResponseKind,
-    bytes: Vec<u8>,
-}
+impl TryFrom<&Packet> for ResponseKind {
+    type Error = Error;
 
-impl Response {
-    pub fn new(bytes: Vec<u8>) -> Result<Self> {
-        if bytes.len() < 3 {
-            return Err(Error::InvalidResponse);
-        }
-
-        match bytes[1] & 0xF0 {
-            kind @ (0x40 | 0x50) => Ok(Self {
-                bytes,
-                kind: if kind == 0x40 {
-                    ResponseKind::Ack
-                } else {
-                    ResponseKind::Completion
-                },
-            }),
-            0x60 => {
+    fn try_from(bytes: &Packet) -> std::result::Result<Self, Self::Error> {
+        match bytes[1] >> 4 {
+            4 => Ok(Self::Ack),
+            5 => Ok(Self::Completion),
+            6 => {
                 if bytes.len() < 4 {
                     Err(Error::InvalidResponse)
                 } else {
                     Err(match bytes[2] {
                         0x01 => Error::InvalidMessageLength,
-                        0x02 => Error::SyntaxError,
+                        0x02 => Error::Syntax,
                         0x03 => Error::CommandBufferFull,
                         0x04 => Error::CommandCanceled,
                         0x05 => Error::NoSocket,
                         0x41 => Error::CommandNotExecutable,
-                        _ => Error::UnknownError,
+                        _ => Error::Unknown,
                     })
                 }
             }
             _ => Err(Error::InvalidResponse),
         }
     }
+}
 
+#[derive(Debug)]
+pub struct Response {
+    kind: ResponseKind,
+    bytes: Packet,
+}
+
+impl Response {
     pub fn kind(&self) -> ResponseKind {
         self.kind
     }
@@ -59,98 +53,73 @@ impl Response {
     }
 }
 
+impl TryFrom<Packet> for Response {
+    type Error = Error;
+
+    fn try_from(bytes: Packet) -> std::result::Result<Self, Self::Error> {
+        println!("bytes: {:?}", bytes);
+
+        if bytes.len() < 3 {
+            return Err(Error::InvalidResponse);
+        }
+
+        Ok(Self {
+            kind: (&bytes).try_into()?,
+            bytes,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::super::Result;
     use super::*;
 
-    #[test]
-    fn test_new() {
-        assert_matches!(
-            Response::new(vec![0x90, 0x40, 0xFF]).unwrap().kind(),
-            ResponseKind::Ack
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x41, 0xFF]).unwrap().kind(),
-            ResponseKind::Ack
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x50, 0xFF]).unwrap().kind(),
-            ResponseKind::Completion
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x51, 0xFF]).unwrap().kind(),
-            ResponseKind::Completion
-        );
+    use test_case::test_case;
+
+    fn matches_packet<const N: usize>(expected: [u8; N]) -> impl Fn(Result<Packet>) {
+        let expected = Vec::from(expected);
+        move |actual| match actual {
+            Ok(value) => assert_eq!(value, expected),
+            Err(_) => panic!("Error returned"),
+        }
     }
 
-    #[test]
-    fn test_new_errors() {
-        assert_matches!(Response::new(Vec::new()), Err(Error::InvalidResponse));
-        assert_matches!(Response::new(vec![0x90]), Err(Error::InvalidResponse));
-        assert_matches!(Response::new(vec![0x90, 0xFF]), Err(Error::InvalidResponse));
-        assert_matches!(
-            Response::new(vec![0x90, 0x00, 0xFF]),
-            Err(Error::InvalidResponse)
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x60, 0xFF]),
-            Err(Error::InvalidResponse)
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x01, 0xFF]),
-            Err(Error::InvalidMessageLength)
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x02, 0xFF]),
-            Err(Error::SyntaxError)
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x03, 0xFF]),
-            Err(Error::CommandBufferFull)
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x04, 0xFF]),
-            Err(Error::CommandCanceled)
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x05, 0xFF]),
-            Err(Error::NoSocket)
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x41, 0xFF]),
-            Err(Error::CommandNotExecutable)
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x60, 0x06, 0xFF]),
-            Err(Error::UnknownError)
-        );
+    #[test_case(vec![0x90, 0x40, 0xFF] => matches Ok(ResponseKind::Ack); "ack 0")]
+    #[test_case(vec![0x90, 0x41, 0xFF] => matches Ok(ResponseKind::Ack); "ack 1")]
+    #[test_case(vec![0x90, 0x50, 0xFF] => matches Ok(ResponseKind::Completion); "completion 0")]
+    #[test_case(vec![0x90, 0x51, 0xFF] => matches Ok(ResponseKind::Completion); "completion 1")]
+    #[test_case(vec![] => matches Err(Error::InvalidResponse); "empty packet")]
+    #[test_case(vec![0x90] => matches Err(Error::InvalidResponse); "1 item packet")]
+    #[test_case(vec![0x90, 0xFF] => matches Err(Error::InvalidResponse); "2 item packet")]
+    #[test_case(vec![0x90, 0x00, 0xFF] => matches Err(Error::InvalidResponse); "wrong packet type")]
+    #[test_case(vec![0x90, 0x60, 0xFF] => matches Err(Error::InvalidResponse); "missing error code")]
+    #[test_case(vec![0x90, 0x60, 0x01, 0xFF] => matches Err(Error::InvalidMessageLength); "invalid message length")]
+    #[test_case(vec![0x90, 0x60, 0x02, 0xFF] => matches Err(Error::Syntax); "syntax error")]
+    #[test_case(vec![0x90, 0x60, 0x03, 0xFF] => matches Err(Error::CommandBufferFull); "command buffer full")]
+    #[test_case(vec![0x90, 0x60, 0x04, 0xFF] => matches Err(Error::CommandCanceled); "command canceled")]
+    #[test_case(vec![0x90, 0x60, 0x05, 0xFF] => matches Err(Error::NoSocket); "no socket")]
+    #[test_case(vec![0x90, 0x60, 0x41, 0xFF] => matches Err(Error::CommandNotExecutable); "command not executable")]
+    #[test_case(vec![0x90, 0x60, 0x06, 0xFF] => matches Err(Error::Unknown); "unknown error")]
+    fn test_try_from(packet: Packet) -> Result<ResponseKind> {
+        Ok(Response::try_from(packet)?.kind())
     }
 
-    #[test]
-    fn test_address() {
-        assert_eq!(Response::new(vec![0x90, 0x40, 0xFF]).unwrap().address(), 1);
-        assert_eq!(Response::new(vec![0xA0, 0x40, 0xFF]).unwrap().address(), 2);
-        assert_eq!(Response::new(vec![0xB0, 0x40, 0xFF]).unwrap().address(), 3);
-        assert_eq!(Response::new(vec![0xC0, 0x40, 0xFF]).unwrap().address(), 4);
-        assert_eq!(Response::new(vec![0xD0, 0x40, 0xFF]).unwrap().address(), 5);
-        assert_eq!(Response::new(vec![0xE0, 0x40, 0xFF]).unwrap().address(), 6);
-        assert_eq!(Response::new(vec![0xF0, 0x40, 0xFF]).unwrap().address(), 7);
+    #[test_case(vec![0x90, 0x40, 0xFF] => matches Ok(1); "address 1")]
+    #[test_case(vec![0xA0, 0x40, 0xFF] => matches Ok(2); "address 2")]
+    #[test_case(vec![0xB0, 0x40, 0xFF] => matches Ok(3); "address 3")]
+    #[test_case(vec![0xC0, 0x40, 0xFF] => matches Ok(4); "address 4")]
+    #[test_case(vec![0xD0, 0x40, 0xFF] => matches Ok(5); "address 5")]
+    #[test_case(vec![0xE0, 0x40, 0xFF] => matches Ok(6); "address 6")]
+    #[test_case(vec![0xF0, 0x40, 0xFF] => matches Ok(7); "address 7")]
+    fn test_address(packet: Packet) -> Result<u8> {
+        Ok(Response::try_from(packet)?.address())
     }
 
-    #[test]
-    fn test_payload() {
-        assert_matches!(Response::new(vec![0x90, 0x41, 0xFF]).unwrap().payload(), []);
-        assert_matches!(
-            Response::new(vec![0x90, 0x50, 0x02, 0xFF])
-                .unwrap()
-                .payload(),
-            [0x02]
-        );
-        assert_matches!(
-            Response::new(vec![0x90, 0x50, 0x02, 0x03, 0xFF])
-                .unwrap()
-                .payload(),
-            [0x02, 0x03]
-        );
+    #[test_case(vec![0x90, 0x41, 0xFF] => using matches_packet([]); "empty")]
+    #[test_case(vec![0x90, 0x41, 0x02, 0xFF] => using matches_packet([0x02]); "one item")]
+    #[test_case(vec![0x90, 0x41, 0x02, 0x03, 0xFF] => using matches_packet([0x02, 0x03]); "two items")]
+    fn test_payload(packet: Packet) -> Result<Packet> {
+        Ok(Response::try_from(packet)?.payload().to_vec())
     }
 }

@@ -1,10 +1,6 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-#[cfg(test)]
-#[macro_use]
-extern crate assert_matches;
-
 mod error;
 mod port_state;
 mod visca;
@@ -17,9 +13,9 @@ use tauri_plugin_window_state::StateFlags;
 
 use crate::error::Result;
 use crate::port_state::PortState;
-use crate::visca::{Autofocus, Move, Power, Preset, Zoom};
+use crate::visca::{Autofocus, Focus, Move, Power, Preset, Zoom};
 
-fn send_staus(app_handle: &tauri::AppHandle, status: &str) -> () {
+fn send_staus(app_handle: &tauri::AppHandle, status: &str) {
     app_handle.emit_to("main", "status", status).ok();
 }
 
@@ -90,7 +86,7 @@ fn stop_move(port_state: tauri::State<PortState>) -> Result<()> {
 fn zoom(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
     println!("Zoom: {}", direction);
 
-    port_state.execute(1, Zoom::from(direction))?;
+    port_state.execute(1, Zoom::try_from(direction)?)?;
 
     Ok(())
 }
@@ -105,10 +101,28 @@ fn stop_zoom(port_state: tauri::State<PortState>) -> Result<()> {
 }
 
 #[tauri::command]
+fn focus(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
+    println!("Focus: {}", direction);
+
+    port_state.execute(1, Focus::try_from(direction)?)?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_focus(port_state: tauri::State<PortState>) -> Result<()> {
+    println!("Stop Focus");
+
+    port_state.execute(1, Focus::Stop)?;
+
+    Ok(())
+}
+
+#[tauri::command]
 fn get_ports() -> Result<Vec<String>> {
     Ok(serialport::available_ports()?
         .into_iter()
-        .map(|port| port.port_name.to_string())
+        .map(|port| port.port_name)
         .collect())
 }
 
@@ -189,14 +203,15 @@ fn main() {
             stop_move,
             zoom,
             stop_zoom,
+            focus,
+            stop_focus,
         ])
-        .on_window_event(|event| match event.event() {
-            WindowEvent::Destroyed => {
+        .on_window_event(|event| {
+            if let WindowEvent::Destroyed = event.event() {
                 if event.window().label() == "main" {
                     std::process::exit(0);
                 }
             }
-            _ => {}
         })
         .setup(|app| {
             let app_handle = app.handle();
@@ -204,8 +219,7 @@ fn main() {
             app.listen_global("port-changed", move |event| {
                 let port_name = event
                     .payload()
-                    .map(|payload| serde_json::from_str::<&str>(payload).ok())
-                    .flatten();
+                    .and_then(|payload| serde_json::from_str::<&str>(payload).ok());
 
                 send_staus(
                     &app_handle,
@@ -229,6 +243,20 @@ fn main() {
                             None => "Disconnected",
                         },
                     );
+                }
+
+                if let Ok(power) = port_state.inquire::<Power>(1) {
+                    println!("Power: {:?}", power);
+                    app_handle
+                        .emit_to::<bool>("main", "power", power.into())
+                        .ok();
+                }
+
+                if let Ok(autofocus) = port_state.inquire::<Autofocus>(1) {
+                    println!("Autofocus: {:?}", autofocus);
+                    app_handle
+                        .emit_to::<bool>("main", "autofocus", autofocus.into())
+                        .ok();
                 }
             });
 

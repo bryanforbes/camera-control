@@ -2,6 +2,18 @@ use thiserror::Error as ThisError;
 
 #[derive(ThisError, Debug)]
 pub enum Error {
+    #[error("invalid power value")]
+    InvalidPowerValue,
+
+    #[error("invalid autofocus value")]
+    InvalidAutofocusValue,
+
+    #[error("invalid zoom value")]
+    InvalidZoomValue,
+
+    #[error("invalid focus value")]
+    InvalidFocusValue,
+
     #[error("invalid address")]
     InvalidAddress,
 
@@ -15,7 +27,7 @@ pub enum Error {
     InvalidMessageLength,
 
     #[error("syntax error")]
-    SyntaxError,
+    Syntax,
 
     #[error("command buffer full")]
     CommandBufferFull,
@@ -30,7 +42,7 @@ pub enum Error {
     CommandNotExecutable,
 
     #[error("unknown error")]
-    UnknownError,
+    Unknown,
 
     #[error("invalid response")]
     InvalidResponse,
@@ -49,3 +61,16 @@ impl serde::Serialize for Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_serialize() {
+        assert_eq!(
+            serde_json::to_string(&Error::InvalidAddress).unwrap(),
+            "\"invalid address\""
+        );
+    }
+}

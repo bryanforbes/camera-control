@@ -1,7 +1,15 @@
 use core::fmt;
 use std::io::{BufRead, BufReader, Read, Write};
 
-use super::{Command, Error, Inquiry, Response, ResponseKind, Result};
+use super::{Action, Error, Inquiry, Packet, Response, ResponseKind, Result};
+
+fn header_for_address(address: u8) -> Result<u8> {
+    if address <= 7 {
+        Ok(0x80 | address)
+    } else {
+        Err(Error::InvalidAddress)
+    }
+}
 
 pub struct ViscaPort<T: Read + Write> {
     reader: BufReader<Box<T>>,
@@ -17,8 +25,23 @@ where
         }
     }
 
-    fn send_packet_with_response(&mut self, address: u8, packet: &[u8]) -> Result<Response> {
-        self.reader.get_mut().write_all(packet)?;
+    fn send_packet_with_response(
+        &mut self,
+        address: u8,
+        packet_type: u8,
+        category: u8,
+        id: u8,
+        data: Option<&[u8]>,
+    ) -> Result<Response> {
+        let reader = self.reader.get_mut();
+
+        reader.write_all(&[header_for_address(address)?, packet_type, category, id])?;
+
+        if let Some(data) = data {
+            reader.write_all(data)?;
+        }
+
+        reader.write_all(&[0xFF])?;
 
         let response = self.receive_response(address)?;
         if let ResponseKind::Completion = response.kind() {
@@ -35,21 +58,26 @@ where
 
     fn receive_response(&mut self, address: u8) -> Result<Response> {
         loop {
-            let mut bytes: Vec<u8> = vec![];
+            let mut bytes: Packet = vec![];
             self.reader.read_until(0xFF, &mut bytes)?;
 
-            let response = Response::new(bytes)?;
+            let response: Response = bytes.try_into()?;
             if response.address() == address {
                 return Ok(response);
             }
         }
     }
 
-    pub fn execute<C: Command>(&mut self, address: u8, command: C) -> Result<()> {
-        let response =
-            self.send_packet_with_response(address, command.to_command_bytes(address)?.as_slice())?;
+    pub fn execute<const P: usize, A: Action<P>>(&mut self, address: u8, action: A) -> Result<()> {
+        let response = self.send_packet_with_response(
+            address,
+            0x01,
+            A::COMMAND_CATEGORY,
+            A::COMMAND_ID,
+            Some(&action.data()?),
+        )?;
 
-        if response.payload().len() == 0 {
+        if response.payload().is_empty() {
             Ok(())
         } else {
             Err(Error::InvalidResponse)
@@ -57,7 +85,13 @@ where
     }
 
     pub fn inquire<R: Inquiry>(&mut self, address: u8) -> Result<R> {
-        let response = self.send_packet_with_response(address, &R::to_inquiry_bytes(address)?)?;
+        let response = self.send_packet_with_response(
+            address,
+            0x09,
+            R::COMMAND_CATEGORY,
+            R::COMMAND_ID,
+            None,
+        )?;
         R::transform_inquiry_response(&response)
     }
 }

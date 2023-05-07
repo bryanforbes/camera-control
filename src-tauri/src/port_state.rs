@@ -3,7 +3,7 @@ use std::{sync::Mutex, time::Duration};
 
 use crate::{
     error::{Error, Result},
-    visca::{Command, Inquiry, ViscaPort},
+    visca::{Action, Inquiry, ViscaPort},
 };
 
 pub struct PortState {
@@ -17,9 +17,9 @@ impl PortState {
         }
     }
 
-    pub fn execute<C: Command>(&self, address: u8, command: C) -> Result<()> {
+    pub fn execute<const P: usize, A: Action<P>>(&self, address: u8, action: A) -> Result<()> {
         match self.port.lock().unwrap().as_mut() {
-            Some(port) => Ok(port.execute(address, command)?),
+            Some(port) => Ok(port.execute(address, action)?),
             None => Err(Error::NoPortSet),
         }
     }
