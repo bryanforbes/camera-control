@@ -35,6 +35,19 @@ where
     ) -> Result<Response> {
         let reader = self.reader.get_mut();
 
+        #[cfg(debug_assertions)]
+        {
+            let mut bytes: Packet = vec![header_for_address(address)?, packet_type, category, id];
+
+            if let Some(data) = data {
+                bytes.extend_from_slice(data);
+            }
+
+            bytes.push(0xFF);
+
+            println!("Sending: {:02X?}", bytes);
+        }
+
         reader.write_all(&[header_for_address(address)?, packet_type, category, id])?;
 
         if let Some(data) = data {
@@ -60,6 +73,9 @@ where
         loop {
             let mut bytes: Packet = vec![];
             self.reader.read_until(0xFF, &mut bytes)?;
+
+            #[cfg(debug_assertions)]
+            println!("Received: {:02X?}", bytes);
 
             let response: Response = bytes.try_into()?;
             if response.address() == address {
