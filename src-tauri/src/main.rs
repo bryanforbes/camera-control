@@ -1,6 +1,10 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+extern crate pretty_env_logger;
+#[macro_use]
+extern crate log;
+
 mod error;
 mod port_state;
 mod visca;
@@ -21,7 +25,7 @@ fn send_staus(app_handle: &tauri::AppHandle, status: &str) {
 
 #[tauri::command]
 fn camera_power(port_state: tauri::State<PortState>, state: bool) -> Result<()> {
-    println!("Power: {}", state);
+    debug!("Power: {}", state);
 
     port_state.execute(1, Power::from(state))?;
 
@@ -30,7 +34,7 @@ fn camera_power(port_state: tauri::State<PortState>, state: bool) -> Result<()> 
 
 #[tauri::command]
 fn autofocus(port_state: tauri::State<PortState>, state: bool) -> Result<()> {
-    println!("Autofocus: {}", state);
+    debug!("Autofocus: {}", state);
 
     port_state.execute(1, Autofocus::from(state))?;
 
@@ -39,7 +43,7 @@ fn autofocus(port_state: tauri::State<PortState>, state: bool) -> Result<()> {
 
 #[tauri::command]
 fn go_to_preset(port_state: tauri::State<PortState>, preset: u8) -> Result<()> {
-    println!("Go To Preset: {}", preset);
+    debug!("Go To Preset: {}", preset);
 
     port_state.execute(1, Preset::Recall(preset))?;
 
@@ -48,7 +52,7 @@ fn go_to_preset(port_state: tauri::State<PortState>, preset: u8) -> Result<()> {
 
 #[tauri::command]
 fn set_preset(port_state: tauri::State<PortState>, preset: u8) -> Result<()> {
-    println!("Set Preset: {}", preset);
+    debug!("Set Preset: {}", preset);
 
     port_state.execute(1, Preset::Set(preset))?;
 
@@ -57,7 +61,7 @@ fn set_preset(port_state: tauri::State<PortState>, preset: u8) -> Result<()> {
 
 #[tauri::command]
 fn move_camera(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
-    println!("Direction: {}", direction);
+    debug!("Direction: {}", direction);
 
     port_state.execute(
         1,
@@ -75,7 +79,7 @@ fn move_camera(port_state: tauri::State<PortState>, direction: &str) -> Result<(
 
 #[tauri::command]
 fn stop_move(port_state: tauri::State<PortState>) -> Result<()> {
-    println!("Stop Move");
+    debug!("Stop Move");
 
     port_state.execute(1, Move::Stop)?;
 
@@ -84,7 +88,7 @@ fn stop_move(port_state: tauri::State<PortState>) -> Result<()> {
 
 #[tauri::command]
 fn zoom(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
-    println!("Zoom: {}", direction);
+    debug!("Zoom: {}", direction);
 
     port_state.execute(1, Zoom::try_from(direction)?)?;
 
@@ -93,7 +97,7 @@ fn zoom(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
 
 #[tauri::command]
 fn stop_zoom(port_state: tauri::State<PortState>) -> Result<()> {
-    println!("Stop Zoom");
+    debug!("Stop Zoom");
 
     port_state.execute(1, Zoom::Stop)?;
 
@@ -102,7 +106,7 @@ fn stop_zoom(port_state: tauri::State<PortState>) -> Result<()> {
 
 #[tauri::command]
 fn focus(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
-    println!("Focus: {}", direction);
+    debug!("Focus: {}", direction);
 
     port_state.execute(1, Focus::try_from(direction)?)?;
 
@@ -111,7 +115,7 @@ fn focus(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
 
 #[tauri::command]
 fn stop_focus(port_state: tauri::State<PortState>) -> Result<()> {
-    println!("Stop Focus");
+    debug!("Stop Focus");
 
     port_state.execute(1, Focus::Stop)?;
 
@@ -183,6 +187,17 @@ fn create_builder(context: &Context<EmbeddedAssets>) -> tauri::Builder<Wry> {
 }
 
 fn main() {
+    pretty_env_logger::formatted_builder()
+        .filter(
+            Some("camera_control"),
+            if cfg!(debug_assertions) {
+                log::LevelFilter::Debug
+            } else {
+                log::LevelFilter::Error
+            },
+        )
+        .init();
+
     let context = tauri::generate_context!();
 
     create_builder(&context)
@@ -246,14 +261,14 @@ fn main() {
                 }
 
                 if let Ok(power) = port_state.inquire::<Power>(1) {
-                    println!("Power: {:?}", power);
+                    debug!("Power: {:?}", power);
                     app_handle
                         .emit_to::<bool>("main", "power", power.into())
                         .ok();
                 }
 
                 if let Ok(autofocus) = port_state.inquire::<Autofocus>(1) {
-                    println!("Autofocus: {:?}", autofocus);
+                    debug!("Autofocus: {:?}", autofocus);
                     app_handle
                         .emit_to::<bool>("main", "autofocus", autofocus.into())
                         .ok();

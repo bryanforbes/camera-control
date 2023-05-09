@@ -32,7 +32,7 @@ impl PortState {
     }
 
     pub fn set_port(&self, path: Option<&str>) -> Result<()> {
-        println!("{:?}", path);
+        debug!("{:?}", path);
 
         // Drop the previous port implicitly before setting a new one
         *self.port.lock().unwrap() = None;

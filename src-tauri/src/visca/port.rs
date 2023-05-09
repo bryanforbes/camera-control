@@ -45,7 +45,7 @@ where
 
             bytes.push(0xFF);
 
-            println!("Sending: {:02X?}", bytes);
+            debug!("Sending: {:02X?}", bytes);
         }
 
         reader.write_all(&[header_for_address(address)?, packet_type, category, id])?;
@@ -78,7 +78,7 @@ where
             };
 
             #[cfg(debug_assertions)]
-            println!("Received: {:02X?}", bytes);
+            debug!("Received: {:02X?}", bytes);
 
             let response: Response = bytes.try_into()?;
             if response.address() == address {

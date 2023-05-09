@@ -57,7 +57,7 @@ impl TryFrom<Packet> for Response {
     type Error = Error;
 
     fn try_from(bytes: Packet) -> std::result::Result<Self, Self::Error> {
-        println!("bytes: {:?}", bytes);
+        debug!("bytes: {:?}", bytes);
 
         if bytes.len() < 3 {
             return Err(Error::InvalidResponse);
