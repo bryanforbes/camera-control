@@ -71,8 +71,11 @@ where
 
     fn receive_response(&mut self, address: u8) -> Result<Response> {
         loop {
-            let mut bytes: Packet = vec![];
-            self.reader.read_until(0xFF, &mut bytes)?;
+            let bytes = {
+                let mut bytes: Packet = vec![];
+                self.reader.read_until(0xFF, &mut bytes)?;
+                bytes
+            };
 
             #[cfg(debug_assertions)]
             println!("Received: {:02X?}", bytes);
