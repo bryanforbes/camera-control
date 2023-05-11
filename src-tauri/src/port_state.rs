@@ -17,14 +17,17 @@ impl PortState {
         }
     }
 
-    pub fn execute<A: Action>(&self, address: u8, action: A) -> Result<()> {
+    pub fn execute(&self, address: u8, action: impl Action) -> Result<()> {
         match self.port.lock().unwrap().as_mut() {
             Some(port) => Ok(port.execute(address, action)?),
             None => Err(Error::NoPortSet),
         }
     }
 
-    pub fn inquire<R: Inquiry>(&self, address: u8) -> Result<R> {
+    pub fn inquire<R>(&self, address: u8) -> Result<R>
+    where
+        R: Inquiry,
+    {
         match self.port.lock().unwrap().as_mut() {
             Some(port) => Ok(port.inquire::<R>(address)?),
             None => Err(Error::NoPortSet),

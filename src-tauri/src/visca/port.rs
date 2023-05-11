@@ -102,7 +102,7 @@ where
         }
     }
 
-    pub fn execute<A: Action>(&mut self, address: u8, action: A) -> Result<()> {
+    pub fn execute(&mut self, address: u8, action: impl Action) -> Result<()> {
         let response = self.send_packet_with_response(address, action.to_bytes()?)?;
 
         if response.payload().is_empty() {
@@ -112,7 +112,10 @@ where
         }
     }
 
-    pub fn inquire<R: Inquiry>(&mut self, address: u8) -> Result<R> {
+    pub fn inquire<R>(&mut self, address: u8) -> Result<R>
+    where
+        R: Inquiry,
+    {
         let response = self.send_packet_with_response(address, R::to_bytes())?;
         R::from_response_payload(response.payload())
     }
