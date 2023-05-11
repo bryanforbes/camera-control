@@ -1,13 +1,44 @@
 use core::fmt;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, BufReader, ErrorKind, Read, Write};
 
-use super::{Action, Error, Inquiry, Packet, Response, ResponseKind, Result};
+use bytes::{BufMut, Bytes, BytesMut};
+
+use super::{Action, Error, Inquiry, Response, ResponseKind, Result};
 
 fn header_for_address(address: u8) -> Result<u8> {
     if address <= 7 {
         Ok(0x80 | address)
     } else {
         Err(Error::InvalidAddress)
+    }
+}
+
+// Copied from BufRead::read_until and adapted to use BytesMut
+fn read_until<R: BufRead + ?Sized>(r: &mut R, delim: u8, buf: &mut BytesMut) -> io::Result<usize> {
+    let mut read = 0;
+    loop {
+        let (done, used) = {
+            let available = match r.fill_buf() {
+                Ok(n) => n,
+                Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
+                Err(e) => return Err(e),
+            };
+            match memchr::memchr(delim, available) {
+                Some(i) => {
+                    buf.extend_from_slice(&available[..=i]);
+                    (true, i + 1)
+                }
+                None => {
+                    buf.extend_from_slice(available);
+                    (false, available.len())
+                }
+            }
+        };
+        r.consume(used);
+        read += used;
+        if done || used == 0 {
+            return Ok(read);
+        }
     }
 }
 
@@ -25,43 +56,29 @@ where
         }
     }
 
-    fn send_packet_with_response(
-        &mut self,
-        address: u8,
-        packet_type: u8,
-        category: u8,
-        id: u8,
-        data: Option<&[u8]>,
-    ) -> Result<Response> {
+    fn send_packet_with_response(&mut self, address: u8, bytes: Bytes) -> Result<Response> {
         let reader = self.reader.get_mut();
+        let address = header_for_address(address)?;
 
         #[cfg(debug_assertions)]
         {
-            let mut bytes: Packet = vec![header_for_address(address)?, packet_type, category, id];
-
-            if let Some(data) = data {
-                bytes.extend_from_slice(data);
-            }
-
-            bytes.push(0xFF);
-
-            debug!("Sending: {:02X?}", bytes);
+            let mut output_bytes = BytesMut::with_capacity(16);
+            output_bytes.put_u8(address);
+            output_bytes.extend(&bytes);
+            output_bytes.put_u8(0xFF);
+            debug!("Sending: {:02X?}", output_bytes.to_vec());
         }
 
-        reader.write_all(&[header_for_address(address)?, packet_type, category, id])?;
-
-        if let Some(data) = data {
-            reader.write_all(data)?;
-        }
-
+        reader.write_all(&[address])?;
+        reader.write_all(&bytes)?;
         reader.write_all(&[0xFF])?;
 
-        let response = self.receive_response(address)?;
+        let response = self.receive_response()?;
         if let ResponseKind::Completion = response.kind() {
             return Ok(response);
         }
 
-        let response = self.receive_response(address)?;
+        let response = self.receive_response()?;
         if let ResponseKind::Completion = response.kind() {
             Ok(response)
         } else {
@@ -69,32 +86,24 @@ where
         }
     }
 
-    fn receive_response(&mut self, address: u8) -> Result<Response> {
+    fn receive_response(&mut self) -> Result<Response> {
         loop {
-            let bytes = {
-                let mut bytes: Packet = vec![];
-                self.reader.read_until(0xFF, &mut bytes)?;
-                bytes
-            };
+            let mut bytes = BytesMut::with_capacity(16);
+            match read_until(&mut self.reader, 0xFF, &mut bytes) {
+                Ok(_) => {
+                    #[cfg(debug_assertions)]
+                    debug!("Received: {:02X?}", bytes.to_vec());
 
-            #[cfg(debug_assertions)]
-            debug!("Received: {:02X?}", bytes);
-
-            let response: Response = bytes.try_into()?;
-            if response.address() == address {
-                return Ok(response);
+                    return bytes.freeze().try_into();
+                }
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+                Err(error) => return Err(Error::Io(error)),
             }
         }
     }
 
-    pub fn execute<const P: usize, A: Action<P>>(&mut self, address: u8, action: A) -> Result<()> {
-        let response = self.send_packet_with_response(
-            address,
-            0x01,
-            A::COMMAND_CATEGORY,
-            A::COMMAND_ID,
-            Some(&action.data()?),
-        )?;
+    pub fn execute<A: Action>(&mut self, address: u8, action: A) -> Result<()> {
+        let response = self.send_packet_with_response(address, action.to_bytes()?)?;
 
         if response.payload().is_empty() {
             Ok(())
@@ -104,14 +113,8 @@ where
     }
 
     pub fn inquire<R: Inquiry>(&mut self, address: u8) -> Result<R> {
-        let response = self.send_packet_with_response(
-            address,
-            0x09,
-            R::COMMAND_CATEGORY,
-            R::COMMAND_ID,
-            None,
-        )?;
-        R::transform_inquiry_response(&response)
+        let response = self.send_packet_with_response(address, R::to_bytes())?;
+        R::from_response_payload(response.payload())
     }
 }
 

@@ -17,7 +17,7 @@ impl PortState {
         }
     }
 
-    pub fn execute<const P: usize, A: Action<P>>(&self, address: u8, action: A) -> Result<()> {
+    pub fn execute<A: Action>(&self, address: u8, action: A) -> Result<()> {
         match self.port.lock().unwrap().as_mut() {
             Some(port) => Ok(port.execute(address, action)?),
             None => Err(Error::NoPortSet),

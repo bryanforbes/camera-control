@@ -300,7 +300,9 @@ dependencies = [
 name = "camera-control"
 version = "23.4.7-0"
 dependencies = [
+ "bytes",
  "log",
+ "memchr",
  "pretty_env_logger",
  "serde",
  "serde_json",
