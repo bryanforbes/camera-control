@@ -9,7 +9,6 @@
     ":combinePatchMinorReleases",
     "helpers:disableTypesNodeMajor"
   ],
-  // pin all dependencies
   "rangeStrategy": "pin",
   "packageRules": [
     // prioritize dependencies
