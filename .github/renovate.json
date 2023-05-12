@@ -1,0 +1,37 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base",
+    "schedule:daily",
+    ":enablePreCommit",
+    ":assignee(bryanforbes)",
+    ":timezone(America/Chicago)",
+    ":combinePatchMinorReleases",
+    "helpers:disableTypesNodeMajor"
+  ],
+  "rangeStrategy": "pin",
+  "packageRules": [
+    {
+      "matchDepTypes": ["dependencies"],
+      "prPriority": 5
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "JS dev dependencies (non-major)",
+      "groupSlug": "js-dev-dependencies"
+    },
+    {
+      "matchManagers": ["cargo"],
+      "matchDepTypes": ["dev-dependencies", "build-dependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "Rust dev and build dependencies (non-major)",
+      "groupSlug": "rust-dev-build-dependencies"
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "extends": ["schedule:daily"]
+  }
+}
