@@ -11,12 +11,10 @@
   ],
   "rangeStrategy": "pin",
   "packageRules": [
-    // prioritize dependencies
     {
       "matchDepTypes": ["dependencies"],
       "prPriority": 5
     },
-    // group non-major dev dependencies into one PR by language
     {
       "matchManagers": ["npm"],
       "matchDepTypes": ["devDependencies"],
