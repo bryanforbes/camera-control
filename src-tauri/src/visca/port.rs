@@ -1,7 +1,9 @@
 use core::fmt;
 use std::io::{self, BufRead, BufReader, ErrorKind, Read, Write};
 
-use bytes::{BufMut, Bytes, BytesMut};
+#[cfg(debug_assertions)]
+use bytes::BufMut;
+use bytes::{Bytes, BytesMut};
 
 use super::{Action, Error, Inquiry, Response, ResponseKind, Result};
 
