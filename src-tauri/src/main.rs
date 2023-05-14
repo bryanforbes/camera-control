@@ -260,7 +260,7 @@ fn main() {
                     );
                 }
 
-                if let Ok(power) = port_state.inquire::<Power>(1) {
+                /*if let Ok(power) = port_state.inquire::<Power>(1) {
                     debug!("Power: {:?}", power);
                     app_handle
                         .emit_to::<bool>("main", "power", power.into())
@@ -272,7 +272,7 @@ fn main() {
                     app_handle
                         .emit_to::<bool>("main", "autofocus", autofocus.into())
                         .ok();
-                }
+                }*/
             });
 
             Ok(())

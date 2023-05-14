@@ -1,5 +1,5 @@
 import * as store from './store';
-import { displayError, invoke, toggleControls } from './common';
+import { asyncListener, displayError, invoke, toggleControls } from './common';
 import { ask } from '@tauri-apps/api/dialog';
 import { WebviewWindow } from '@tauri-apps/api/window';
 
@@ -16,33 +16,29 @@ function setupDirectionButton(button: HTMLButtonElement): void {
   const stopStatus = `Done ${isZoom ? 'zooming' : 'moving'}`;
   const stopStatusSetter = () => setStatus(stopStatus);
 
-  button.addEventListener('pointerdown', async (event) => {
-    try {
+  button.addEventListener(
+    'pointerdown',
+    asyncListener(async (event) => {
       await invoke(command, { direction }, statusSetter);
-    } catch (e) {
-      await displayError(e);
-      return;
-    }
 
-    const controller = new AbortController();
+      const controller = new AbortController();
 
-    button.addEventListener(
-      'pointerup',
-      async (event) => {
-        try {
-          await invoke('stop', undefined, stopStatusSetter);
-        } catch (e) {
-          await displayError(e);
-        } finally {
-          controller.abort();
-          button.releasePointerCapture(event.pointerId);
-        }
-      },
-      { signal: controller.signal }
-    );
+      button.addEventListener(
+        'pointerup',
+        asyncListener(async (event) => {
+          try {
+            await invoke('stop', undefined, stopStatusSetter);
+          } finally {
+            controller.abort();
+            button.releasePointerCapture(event.pointerId);
+          }
+        }, displayError),
+        { signal: controller.signal }
+      );
 
-    button.setPointerCapture(event.pointerId);
-  });
+      button.setPointerCapture(event.pointerId);
+    }, displayError)
+  );
 }
 
 let portSelect: HTMLSelectElement;
@@ -90,8 +86,12 @@ async function confirmSetPreset(event: MouseEvent): Promise<void> {
     return;
   }
 
-  const preset = parseInt(button.dataset['preset']!, 10);
-  const presetName = button.dataset['presetName']!;
+  const preset = parseInt(button.dataset['preset'] ?? '', 10);
+  const presetName = button.dataset['presetName'];
+
+  if (isNaN(preset) || presetName == null) {
+    return;
+  }
 
   const confirmed = await ask(`Are you sure you want to set ${presetName}?`, { type: 'warning' });
 
@@ -104,29 +104,44 @@ async function confirmSetPreset(event: MouseEvent): Promise<void> {
   }
 }
 
-window.addEventListener('DOMContentLoaded', async (): Promise<void> => {
-  portSelect = document.querySelector('#ports')!;
+window.addEventListener(
+  'DOMContentLoaded',
+  asyncListener(async (): Promise<void> => {
+    const port = document.querySelector<HTMLSelectElement>('#ports');
 
-  await populatePorts();
-
-  store.onPortChange((value) => toggleControls('.controls', Boolean(value)));
-
-  portSelect.addEventListener('change', async (event) => {
-    if (populating) {
+    if (!port) {
       return;
     }
 
-    const target = event.target as HTMLSelectElement;
+    portSelect = port;
 
-    await store.setPort(target.options[target.selectedIndex]?.value || null);
-    await store.save();
-  });
+    await populatePorts();
 
-  for (const button of document.querySelectorAll<HTMLButtonElement>('.controls [data-direction]')) {
-    setupDirectionButton(button);
-  }
+    await store.onPortChange((value) => toggleControls('.controls', Boolean(value)));
 
-  document
-    .querySelector('.presets')
-    ?.addEventListener('click', (event) => confirmSetPreset(event as MouseEvent));
-});
+    portSelect.addEventListener(
+      'change',
+      asyncListener(async (event) => {
+        if (populating) {
+          return;
+        }
+
+        const target = event.target as HTMLSelectElement;
+
+        await store.setPort(target.options[target.selectedIndex]?.value || null);
+        await store.save();
+      })
+    );
+
+    for (const button of document.querySelectorAll<HTMLButtonElement>(
+      '.controls [data-direction]'
+    )) {
+      setupDirectionButton(button);
+    }
+
+    document.querySelector('.presets')?.addEventListener(
+      'click',
+      asyncListener((event) => confirmSetPreset(event as MouseEvent))
+    );
+  })
+);

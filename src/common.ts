@@ -29,3 +29,12 @@ export function toggleControls(parentSelector: string, enabled: boolean): void {
     parent.inert = !enabled;
   }
 }
+
+export function asyncListener<Event, Error>(
+  listener: (event: Event) => Promise<unknown>,
+  errorHandler?: (error: Error) => unknown
+): (event: Event) => void {
+  return (event: Event) => {
+    listener(event).catch(errorHandler ?? ((error) => console.error(error)));
+  };
+}

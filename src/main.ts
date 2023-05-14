@@ -1,7 +1,7 @@
 import { emit, listen } from '@tauri-apps/api/event';
 import { WebviewWindow } from '@tauri-apps/api/window';
 import * as store from './store';
-import { displayError, toggleControls, invoke } from './common';
+import { displayError, toggleControls, invoke, asyncListener } from './common';
 
 function updateStatus(status: string): void {
   const element = document.querySelector('.status');
@@ -28,7 +28,12 @@ async function handleControl(event: MouseEvent): Promise<void> {
     return;
   }
 
-  const [func, state] = button.dataset['function']!.split('-') as ['power' | 'autofocus', string];
+  const functionData = button.dataset['function'];
+  if (!functionData) {
+    return;
+  }
+
+  const [func, state] = functionData.split('-') as ['power' | 'autofocus', string];
 
   try {
     await invoke(commands[func], { state: state == 'on' }, () =>
@@ -46,8 +51,12 @@ async function goToPreset(event: MouseEvent): Promise<void> {
     return;
   }
 
-  const preset = parseInt(button.dataset['preset']!, 10);
-  const presetName = button.dataset['presetName']!;
+  const preset = parseInt(button.dataset['preset'] ?? '', 10);
+  const presetName = button.dataset['presetName'];
+
+  if (isNaN(preset) || presetName == null) {
+    return;
+  }
 
   try {
     await invoke('go_to_preset', { preset }, () => updateStatus(presetName));
@@ -73,22 +82,32 @@ async function openSettings(): Promise<void> {
   }
 }
 
-window.addEventListener('DOMContentLoaded', async (): Promise<void> => {
-  store.onPortChange((value) => {
-    emit('port-changed', value);
-    toggleControls('.controls', Boolean(value));
-    toggleControls('.presets', Boolean(value));
-  });
+window.addEventListener(
+  'DOMContentLoaded',
+  asyncListener(async (): Promise<void> => {
+    const openSettingsListener = asyncListener(() => openSettings());
 
-  document
-    .querySelector('.controls')
-    ?.addEventListener('click', (event) => handleControl(event as MouseEvent));
+    document.querySelector('.settings')?.addEventListener('click', openSettingsListener);
+    await listen('open-settings', openSettingsListener);
 
-  document
-    .querySelector('.presets')
-    ?.addEventListener('click', (event) => goToPreset(event as MouseEvent));
+    await listen('status', (event) => updateStatus(event.payload as string));
 
-  document.querySelector('.settings')?.addEventListener('click', () => openSettings());
-  listen('open-settings', () => openSettings());
-  listen('status', (event) => updateStatus(event.payload as string));
-});
+    await store.onPortChange(
+      asyncListener(async (value) => {
+        await emit('port-changed', value);
+        toggleControls('.controls', Boolean(value));
+        toggleControls('.presets', Boolean(value));
+      })
+    );
+
+    document.querySelector('.controls')?.addEventListener(
+      'click',
+      asyncListener((event) => handleControl(event as MouseEvent))
+    );
+
+    document.querySelector('.presets')?.addEventListener(
+      'click',
+      asyncListener((event) => goToPreset(event as MouseEvent))
+    );
+  })
+);

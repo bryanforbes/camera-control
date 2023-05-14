@@ -15,11 +15,10 @@
 
 .controls {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-rows: auto auto;
-  grid-template-areas:
-    'power-on  . autofocus-on'
-    'power-off . autofocus-off';
+  grid-template:
+    'power-on  . autofocus-on' auto
+    'power-off . autofocus-off' auto
+    / auto 1fr auto;
 }
 
 .footer {

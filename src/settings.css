@@ -11,13 +11,12 @@
 
 .directions {
   display: grid;
-  grid-template-columns: repeat(12, 25px);
-  grid-template-rows: repeat(3, 100px) 50px;
-  grid-template-areas:
-    '.    .    .    .    up   up   up   up   .     .     .     .'
-    'left left left left .    .    .    .    right right right right'
-    '.    .    .    .    down down down down .     .     .     .'
-    '.    out  out  .    .    .    .    .    .     in    in    .';
+  grid-template:
+    '.    .    .    .    up   up   up   up   .     .     .     .    ' 100px
+    'left left left left .    .    .    .    right right right right' 100px
+    '.    .    .    .    down down down down .     .     .     .    ' 100px
+    '.    out  out  .    .    .    .    .    .     in    in    .    ' 50px
+    / 25px 25px 25px 25px 25px 25px 25px 25px 25px 25px 25px 25px;
 }
 
 .controls,
