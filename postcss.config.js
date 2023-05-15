@@ -1,7 +1,8 @@
 import autoprefixer from 'autoprefixer';
+import nesting from 'postcss-nesting';
 
 const config = {
-  plugins: [autoprefixer],
+  plugins: [nesting(), autoprefixer()],
 };
 
 export default config;

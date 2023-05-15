@@ -28,12 +28,12 @@
   justify-content: space-between;
 }
 
-.status::before {
-  content: 'Status: ';
-}
-
 .status {
   margin: 0;
+
+  &::before {
+    content: 'Status: ';
+  }
 }
 
 [data-function^='power-'] {

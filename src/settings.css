@@ -17,6 +17,10 @@
     '.    .    .    .    down down down down .     .     .     .    ' 100px
     '.    out  out  .    .    .    .    .    .     in    in    .    ' 50px
     / 25px 25px 25px 25px 25px 25px 25px 25px 25px 25px 25px 25px;
+
+  & button {
+    padding: 10px;
+  }
 }
 
 .controls,
@@ -26,56 +30,52 @@
   row-gap: 4px;
 }
 
-.directions button {
-  padding: 10px;
-}
-
 [data-direction='left'] {
   grid-area: left;
-}
 
-[data-direction='left']::before {
-  content: '\2190';
+  &::before {
+    content: '\2190';
+  }
 }
 
 [data-direction='up'] {
   grid-area: up;
-}
 
-[data-direction='up']::before {
-  content: '\2191';
+  &::before {
+    content: '\2191';
+  }
 }
 
 [data-direction='right'] {
   grid-area: right;
-}
 
-[data-direction='right']::before {
-  content: '\2192';
+  &::before {
+    content: '\2192';
+  }
 }
 
 [data-direction='down'] {
   grid-area: down;
-}
 
-[data-direction='down']::before {
-  content: '\2193';
+  &::before {
+    content: '\2193';
+  }
 }
 
 [data-direction='out'] {
   grid-area: out;
-}
 
-[data-direction='out']::before {
-  content: '-';
+  &::before {
+    content: '-';
+  }
 }
 
 [data-direction='in'] {
   grid-area: in;
-}
 
-[data-direction='in']::before {
-  content: '+';
+  &::before {
+    content: '+';
+  }
 }
 
 .presets {
