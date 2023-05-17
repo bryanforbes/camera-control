@@ -1,17 +1,32 @@
 use std::{ops::DerefMut, sync::Mutex, time::Duration};
 
-use serde::{ser::SerializeStruct, Serialize, Serializer};
+use serde::{Serialize, Serializer};
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 use tauri::Manager;
 
 use crate::{
     error::{Error, Result},
-    visca::{Action, Autofocus, Inquiry, NamedViscaPort, Power, ViscaPort},
+    visca::{Action, Autofocus, Inquiry, Power, ViscaPort},
 };
 
+fn serialize_as_bool<I, S>(value: &I, s: S) -> std::result::Result<S::Ok, S::Error>
+where
+    I: Into<bool> + Copy,
+    S: Serializer,
+{
+    s.serialize_bool((*value).into())
+}
+
+#[derive(Serialize)]
 pub struct CameraState {
+    #[serde(skip)]
     port: Option<ViscaPort<Box<dyn SerialPort>>>,
+
+    #[serde(rename = "port")]
+    port_name: Option<String>,
+    #[serde(serialize_with = "serialize_as_bool")]
     autofocus: Autofocus,
+    #[serde(serialize_with = "serialize_as_bool")]
     power: Power,
     status: String,
 }
@@ -26,6 +41,7 @@ impl CameraState {
 
         // Drop the previous port implicitly before setting a new one
         self.port = None;
+        self.port_name = None;
         self.status = "Disconnected".into();
 
         if let Some(path) = path {
@@ -38,6 +54,7 @@ impl CameraState {
                     .timeout(Duration::from_secs(1))
                     .open()?,
             ));
+            self.port_name = Some(path.into());
             self.status = "Connecting".into();
 
             let power = self.inquire::<Power>(1)?;
@@ -99,34 +116,11 @@ impl Default for CameraState {
     fn default() -> Self {
         Self {
             autofocus: Autofocus::Manual,
-            port: Default::default(),
+            port_name: None,
+            port: None,
             power: Power::Off,
             status: "Disconnected".into(),
         }
-    }
-}
-
-impl Serialize for CameraState {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("CameraState", 4)?;
-
-        state.serialize_field(
-            "autofocus",
-            &std::convert::Into::<bool>::into(self.autofocus),
-        )?;
-        state.serialize_field("power", &std::convert::Into::<bool>::into(self.power))?;
-        state.serialize_field("status", &self.status)?;
-
-        let port = match self.port.as_ref() {
-            Some(port) => port.name(),
-            None => None,
-        };
-        state.serialize_field("port", &port)?;
-
-        state.end()
     }
 }
 
@@ -152,6 +146,7 @@ impl MutexCameraState for Mutex<CameraState> {
 
         state.send(handle);
     }
+
     fn with_state_and_status<F>(&self, handle: &tauri::AppHandle, func: F)
     where
         F: FnOnce(&mut CameraState) -> Result<String>,
