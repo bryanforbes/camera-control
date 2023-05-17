@@ -4,6 +4,7 @@ use std::io::{self, BufRead, BufReader, ErrorKind, Read, Write};
 #[cfg(debug_assertions)]
 use bytes::BufMut;
 use bytes::{Bytes, BytesMut};
+use serialport::SerialPort;
 
 use super::{Action, Error, Inquiry, Response, ResponseKind, Result};
 
@@ -42,6 +43,10 @@ fn read_until<R: BufRead + ?Sized>(r: &mut R, delim: u8, buf: &mut BytesMut) -> 
             return Ok(read);
         }
     }
+}
+
+pub trait NamedViscaPort {
+    fn name(&self) -> Option<String>;
 }
 
 pub struct ViscaPort<T: Read + Write> {
@@ -129,5 +134,14 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "ViscaPort ( {:?} )", self.reader.get_ref())
+    }
+}
+
+impl<T: ?Sized> NamedViscaPort for ViscaPort<Box<T>>
+where
+    T: SerialPort,
+{
+    fn name(&self) -> Option<String> {
+        self.reader.get_ref().name()
     }
 }

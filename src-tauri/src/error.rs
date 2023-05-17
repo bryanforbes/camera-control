@@ -13,6 +13,12 @@ pub enum Error {
 
     #[error(transparent)]
     Visca(#[from] crate::visca::Error),
+
+    #[error(transparent)]
+    Tauri(#[from] tauri::Error),
+
+    #[error(transparent)]
+    Store(#[from] tauri_plugin_store::Error),
 }
 
 impl serde::Serialize for Error {

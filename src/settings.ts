@@ -1,25 +1,18 @@
 import * as store from './store';
-import { asyncListener, displayError, invoke, toggleControls } from './common';
+import { CameraState, asyncListener, displayError, toggleControls } from './common';
 import { ask } from '@tauri-apps/api/dialog';
-import { WebviewWindow } from '@tauri-apps/api/window';
-
-async function setStatus(status: string): Promise<void> {
-  await WebviewWindow.getByLabel('main')?.emit('status', status);
-}
+import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api';
 
 function setupDirectionButton(button: HTMLButtonElement): void {
   const direction = button.dataset['direction'];
   const isZoom = direction === 'in' || direction === 'out';
   const command = isZoom ? 'zoom' : 'move_camera';
-  const status = `${isZoom ? 'Zooming' : 'Moving'} ${direction}`;
-  const statusSetter = () => setStatus(status);
-  const stopStatus = `Done ${isZoom ? 'zooming' : 'moving'}`;
-  const stopStatusSetter = () => setStatus(stopStatus);
 
   button.addEventListener(
     'pointerdown',
     asyncListener(async (event) => {
-      await invoke(command, { direction }, statusSetter);
+      await invoke(command, { direction });
 
       const controller = new AbortController();
 
@@ -27,17 +20,17 @@ function setupDirectionButton(button: HTMLButtonElement): void {
         'pointerup',
         asyncListener(async (event) => {
           try {
-            await invoke('stop', undefined, stopStatusSetter);
+            await invoke('stop');
           } finally {
             controller.abort();
             button.releasePointerCapture(event.pointerId);
           }
-        }, displayError),
+        }),
         { signal: controller.signal }
       );
 
       button.setPointerCapture(event.pointerId);
-    }, displayError)
+    })
   );
 }
 
@@ -97,11 +90,16 @@ async function confirmSetPreset(event: MouseEvent): Promise<void> {
 
   if (confirmed) {
     try {
-      await invoke('set_preset', { preset }, () => setStatus(`${presetName} preset set`));
+      await invoke('set_preset', { preset });
     } catch (e) {
       await displayError(e);
     }
   }
+}
+
+function onStateChange({ power }: CameraState) {
+  console.log(power);
+  toggleControls('.controls', power);
 }
 
 window.addEventListener(
@@ -117,8 +115,6 @@ window.addEventListener(
 
     await populatePorts();
 
-    await store.onPortChange((value) => toggleControls('.controls', Boolean(value)));
-
     portSelect.addEventListener(
       'change',
       asyncListener(async (event) => {
@@ -128,8 +124,10 @@ window.addEventListener(
 
         const target = event.target as HTMLSelectElement;
 
-        await store.setPort(target.options[target.selectedIndex]?.value || null);
-        await store.save();
+        console.log(target.options[target.selectedIndex]?.value || null);
+        await invoke('set_port', {
+          port: target.options[target.selectedIndex]?.value || null,
+        });
       })
     );
 
@@ -143,5 +141,8 @@ window.addEventListener(
       'click',
       asyncListener((event) => confirmSetPreset(event as MouseEvent))
     );
+
+    onStateChange(await invoke<CameraState>('get_state'));
+    await listen<CameraState>('camera-state', (event) => onStateChange(event.payload));
   })
 );

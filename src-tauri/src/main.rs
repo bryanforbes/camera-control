@@ -5,121 +5,236 @@ extern crate pretty_env_logger;
 #[macro_use]
 extern crate log;
 
+mod camera_state;
 mod error;
-mod port_state;
 mod visca;
 
+use std::ops::Deref;
+use std::sync::Mutex;
+
+use camera_state::{CameraState, MutexCameraState};
+use log::debug;
 use tauri::utils::assets::EmbeddedAssets;
 use tauri::{
     AboutMetadata, Context, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowEvent, Wry,
 };
+use tauri_plugin_store::{with_store, StoreCollection};
 use tauri_plugin_window_state::StateFlags;
 
 use crate::error::Result;
-use crate::port_state::PortState;
 use crate::visca::{Autofocus, Focus, Move, Power, Preset, Zoom};
 
-fn send_staus(app_handle: &tauri::AppHandle, status: &str) {
-    app_handle.emit_to("main", "status", status).ok();
+fn open_settings_window(app_handle: tauri::AppHandle) -> Result<()> {
+    if let Some(window) = app_handle.get_window("settings") {
+        window.set_focus()?;
+    } else {
+        tauri::WindowBuilder::new(
+            &app_handle,
+            "settings",
+            tauri::WindowUrl::App("settings.html".into()),
+        )
+        .title("Camera Control Settings")
+        .resizable(false)
+        .accept_first_mouse(true)
+        .inner_size(600.0, 480.0)
+        .build()?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
-fn camera_power(port_state: tauri::State<PortState>, state: bool) -> Result<()> {
-    debug!("Power: {}", state);
+async fn open_settings(app_handle: tauri::AppHandle) -> Result<()> {
+    open_settings_window(app_handle)
+}
 
-    port_state.execute(1, Power::from(state))?;
+#[tauri::command]
+fn get_state(
+    window: tauri::Window,
+    handle: tauri::AppHandle,
+    mutex_state: tauri::State<Mutex<CameraState>>,
+    stores: tauri::State<StoreCollection<Wry>>,
+) -> Result<serde_json::Value> {
+    let mut state = mutex_state.lock().unwrap();
+
+    if window.label() == "main" {
+        let port_name = with_store(handle, stores, "config.json", |store| {
+            Ok(store.get("port").cloned())
+        })?;
+
+        if let Some(port_name) = port_name {
+            if let Err(error) = state.set_port(port_name.as_str()) {
+                debug!("Error: {}", error);
+                state.set_status(error.to_string());
+            }
+        }
+    }
+
+    Ok(serde_json::to_value(state.deref()).unwrap())
+}
+
+#[tauri::command]
+fn set_port(
+    port: Option<String>,
+    handle: tauri::AppHandle,
+    mutex_state: tauri::State<Mutex<CameraState>>,
+    stores: tauri::State<StoreCollection<Wry>>,
+) -> Result<()> {
+    debug!("Port name: {:?}", port);
+
+    with_store(handle.app_handle(), stores, "config.json", |store| {
+        store.insert("port".into(), port.as_deref().into())?;
+        store.save()
+    })?;
+
+    let mut state = mutex_state.lock().unwrap();
+
+    /*if port.is_some() {
+        state.set_status("Connecting");
+        state.send(&handle);
+    }*/
+
+    if let Err(error) = state.set_port(port.as_deref()) {
+        debug!("Error: {}", error);
+        state.set_status(error.to_string());
+    }
+    state.send(&handle);
 
     Ok(())
 }
 
 #[tauri::command]
-fn autofocus(port_state: tauri::State<PortState>, state: bool) -> Result<()> {
-    debug!("Autofocus: {}", state);
+fn camera_power(
+    mutex_state: tauri::State<Mutex<CameraState>>,
+    handle: tauri::AppHandle,
+    power: bool,
+) {
+    let power: Power = power.into();
 
-    port_state.execute(1, Autofocus::from(state))?;
+    debug!("Power: {:?}", power);
 
-    Ok(())
+    mutex_state.with_state_and_status(&handle, |state| {
+        state.set_power(1, power)?;
+        Ok(format!("Power {:?}", power))
+    });
 }
 
 #[tauri::command]
-fn go_to_preset(port_state: tauri::State<PortState>, preset: u8) -> Result<()> {
+fn autofocus(
+    mutex_state: tauri::State<Mutex<CameraState>>,
+    handle: tauri::AppHandle,
+    autofocus: bool,
+) {
+    let autofocus: Autofocus = autofocus.into();
+
+    debug!("Autofocus: {:?}", autofocus);
+
+    mutex_state.with_state_and_status(&handle, |state| {
+        state.set_autofocus(1, autofocus)?;
+        Ok(format!("Autofocus {:?}", autofocus))
+    });
+}
+
+#[tauri::command]
+fn go_to_preset(
+    mutex_state: tauri::State<Mutex<CameraState>>,
+    handle: tauri::AppHandle,
+    preset: u8,
+    preset_name: String,
+) {
     debug!("Go To Preset: {}", preset);
 
-    port_state.execute(1, Preset::Recall(preset))?;
-
-    Ok(())
+    mutex_state.with_state_and_status(&handle, |state| {
+        state.execute(1, Preset::Recall(preset))?;
+        Ok(preset_name)
+    });
 }
 
 #[tauri::command]
-fn set_preset(port_state: tauri::State<PortState>, preset: u8) -> Result<()> {
+fn set_preset(
+    mutex_state: tauri::State<Mutex<CameraState>>,
+    handle: tauri::AppHandle,
+    preset: u8,
+    preset_name: String,
+) {
     debug!("Set Preset: {}", preset);
 
-    port_state.execute(1, Preset::Set(preset))?;
-
-    Ok(())
+    mutex_state.with_state_and_status(&handle, |state| {
+        state.execute(1, Preset::Set(preset))?;
+        Ok(format!("Set {}", preset_name))
+    });
 }
 
 #[tauri::command]
-fn move_camera(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
+fn move_camera(
+    mutex_state: tauri::State<Mutex<CameraState>>,
+    handle: tauri::AppHandle,
+    direction: &str,
+) {
     debug!("Direction: {}", direction);
 
-    port_state.execute(
-        1,
-        match direction {
-            "left" => Move::Left(1),
-            "right" => Move::Right(1),
-            "up" => Move::Up(1),
-            "down" => Move::Down(1),
-            _ => Move::Stop,
-        },
-    )?;
-
-    Ok(())
+    mutex_state.with_state_and_status(&handle, |state| {
+        state.execute(
+            1,
+            match direction {
+                "left" => Move::Left(1),
+                "right" => Move::Right(1),
+                "up" => Move::Up(1),
+                "down" => Move::Down(1),
+                _ => Move::Stop,
+            },
+        )?;
+        Ok(format!("Moving {}", direction))
+    });
 }
 
 #[tauri::command]
-fn stop_move(port_state: tauri::State<PortState>) -> Result<()> {
+fn stop_move(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle) {
     debug!("Stop Move");
 
-    port_state.execute(1, Move::Stop)?;
-
-    Ok(())
+    mutex_state.with_state_and_status(&handle, |state| {
+        state.execute(1, Move::Stop)?;
+        Ok("Done stopping".into())
+    });
 }
 
 #[tauri::command]
-fn zoom(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
+fn zoom(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle, direction: &str) {
     debug!("Zoom: {}", direction);
 
-    port_state.execute(1, Zoom::try_from(direction)?)?;
-
-    Ok(())
+    mutex_state.with_state_and_status(&handle, |state| {
+        state.execute(1, Zoom::try_from(direction)?)?;
+        Ok(format!("Zooming {}", direction))
+    });
 }
 
 #[tauri::command]
-fn stop_zoom(port_state: tauri::State<PortState>) -> Result<()> {
+fn stop_zoom(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle) {
     debug!("Stop Zoom");
 
-    port_state.execute(1, Zoom::Stop)?;
-
-    Ok(())
+    mutex_state.with_state_and_status(&handle, |state| {
+        state.execute(1, Zoom::Stop)?;
+        Ok("Done zooming".into())
+    });
 }
 
 #[tauri::command]
-fn focus(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
+fn focus(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle, direction: &str) {
     debug!("Focus: {}", direction);
 
-    port_state.execute(1, Focus::try_from(direction)?)?;
-
-    Ok(())
+    mutex_state.with_state_and_status(&handle, |state| {
+        state.execute(1, Focus::try_from(direction)?)?;
+        Ok(format!("Focusing {}", direction))
+    });
 }
 
 #[tauri::command]
-fn stop_focus(port_state: tauri::State<PortState>) -> Result<()> {
+fn stop_focus(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle) {
     debug!("Stop Focus");
 
-    port_state.execute(1, Focus::Stop)?;
-
-    Ok(())
+    mutex_state.with_state_and_status(&handle, |state| {
+        state.execute(1, Focus::Stop)?;
+        Ok("Done focusing".into())
+    });
 }
 
 #[tauri::command]
@@ -174,7 +289,7 @@ fn create_builder(context: &Context<EmbeddedAssets>) -> tauri::Builder<Wry> {
             .menu(menu)
             .on_menu_event(|event| match event.menu_item_id() {
                 "settings" => {
-                    event.window().emit("open-settings", "").unwrap_or(());
+                    open_settings_window(event.window().app_handle()).unwrap_or(());
                 }
                 "check-for-updates" => {
                     event.window().trigger("tauri://update", None);
@@ -201,7 +316,7 @@ fn main() {
     let context = tauri::generate_context!();
 
     create_builder(&context)
-        .manage(PortState::new())
+        .manage(Mutex::new(CameraState::default()))
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(StateFlags::POSITION)
@@ -209,6 +324,9 @@ fn main() {
         )
         .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
+            get_state,
+            set_port,
+            open_settings,
             camera_power,
             autofocus,
             go_to_preset,
@@ -227,55 +345,6 @@ fn main() {
                     std::process::exit(0);
                 }
             }
-        })
-        .setup(|app| {
-            let app_handle = app.handle();
-
-            app.listen_global("port-changed", move |event| {
-                let port_name = event
-                    .payload()
-                    .and_then(|payload| serde_json::from_str::<&str>(payload).ok());
-
-                send_staus(
-                    &app_handle,
-                    match port_name {
-                        Some(_) => "Connecting",
-                        None => "Disconnecting",
-                    },
-                );
-
-                let port_state = app_handle.state::<PortState>();
-
-                if let Err(error) = port_state.set_port(port_name) {
-                    app_handle
-                        .emit_all("port-change-error", error.to_string())
-                        .unwrap_or(());
-                } else {
-                    send_staus(
-                        &app_handle,
-                        match port_name {
-                            Some(_) => "Connected",
-                            None => "Disconnected",
-                        },
-                    );
-                }
-
-                /*if let Ok(power) = port_state.inquire::<Power>(1) {
-                    debug!("Power: {:?}", power);
-                    app_handle
-                        .emit_to::<bool>("main", "power", power.into())
-                        .ok();
-                }
-
-                if let Ok(autofocus) = port_state.inquire::<Autofocus>(1) {
-                    debug!("Autofocus: {:?}", autofocus);
-                    app_handle
-                        .emit_to::<bool>("main", "autofocus", autofocus.into())
-                        .ok();
-                }*/
-            });
-
-            Ok(())
         })
         .run(context)
         .expect("error while running tauri application")

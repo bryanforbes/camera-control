@@ -13,11 +13,10 @@
   row-gap: 4px;
 }
 
-.controls {
+.toggles {
   display: grid;
   grid-template:
-    'power-on  . autofocus-on' auto
-    'power-off . autofocus-off' auto
+    'power . autofocus' auto
     / auto 1fr auto;
 }
 
@@ -36,24 +35,12 @@
   }
 }
 
-[data-function^='power-'] {
-  padding: 10px;
+.power {
+  grid-area: power;
 }
 
-[data-function='power-on'] {
-  grid-area: power-on;
-}
-
-[data-function='power-off'] {
-  grid-area: power-off;
-}
-
-[data-function='autofocus-on'] {
-  grid-area: autofocus-on;
-}
-
-[data-function='autofocus-off'] {
-  grid-area: autofocus-off;
+.autofocus {
+  grid-area: autofocus;
 }
 
 [data-preset-name]::before {

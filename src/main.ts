@@ -1,25 +1,29 @@
-import { emit, listen } from '@tauri-apps/api/event';
-import { WebviewWindow } from '@tauri-apps/api/window';
-import * as store from './store';
-import { displayError, toggleControls, invoke, asyncListener } from './common';
-
-function updateStatus(status: string): void {
-  const element = document.querySelector('.status');
-
-  if (element) {
-    element.textContent = status;
-  }
-}
+import { listen } from '@tauri-apps/api/event';
+// import * as store from './store';
+import { asyncListener, toggleControls, CameraState } from './common';
+import { invoke } from '@tauri-apps/api';
 
 const commands = {
   power: 'camera_power',
   autofocus: 'autofocus',
 } as const;
 
-const statuses = {
-  power: 'Power',
-  autofocus: 'Autofocus',
-} as const;
+async function handleToggle(event: Event): Promise<void> {
+  const toggle = (event.target as HTMLElement).closest<HTMLInputElement>(
+    'input[type="checkbox"].toggle[data-function]'
+  );
+
+  if (!toggle) {
+    return;
+  }
+
+  const func = toggle.dataset['function'] as 'power' | 'autofocus' | undefined;
+  if (!func) {
+    return;
+  }
+
+  await invoke(commands[func], { [func]: toggle.checked });
+}
 
 async function handleControl(event: MouseEvent): Promise<void> {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-function]');
@@ -35,13 +39,7 @@ async function handleControl(event: MouseEvent): Promise<void> {
 
   const [func, state] = functionData.split('-') as ['power' | 'autofocus', string];
 
-  try {
-    await invoke(commands[func], { state: state == 'on' }, () =>
-      updateStatus(`${statuses[func]} ${state}`)
-    );
-  } catch (e) {
-    await displayError(e);
-  }
+  await invoke(commands[func], { state: state == 'on' });
 }
 
 async function goToPreset(event: MouseEvent): Promise<void> {
@@ -58,46 +56,37 @@ async function goToPreset(event: MouseEvent): Promise<void> {
     return;
   }
 
-  try {
-    await invoke('go_to_preset', { preset }, () => updateStatus(presetName));
-  } catch (e) {
-    await displayError(e);
-  }
+  await invoke('go_to_preset', { preset, presetName });
 }
 
-async function openSettings(): Promise<void> {
-  let settingsWindow = WebviewWindow.getByLabel('settings');
+function onStateChange({ status, port, power, autofocus }: CameraState) {
+  toggleControls('.power', Boolean(port));
+  toggleControls('.autofocus', power);
+  toggleControls('.presets', power);
 
-  if (settingsWindow) {
-    await settingsWindow.setFocus();
-  } else {
-    settingsWindow = new WebviewWindow('settings', {
-      url: 'settings.html',
-      title: 'Camera Control Settings',
-      resizable: false,
-      acceptFirstMouse: true,
-      width: 600,
-      height: 480,
-    });
+  console.log(status);
+  const statusElement = document.querySelector('.status');
+  if (statusElement) {
+    statusElement.textContent = status;
+  }
+
+  const powerElement = document.querySelector<HTMLInputElement>('.power .toggle');
+  if (powerElement) {
+    powerElement.checked = power;
+  }
+
+  const autofocusElement = document.querySelector<HTMLInputElement>('.autofocus .toggle');
+  if (autofocusElement) {
+    autofocusElement.checked = autofocus;
   }
 }
 
 window.addEventListener(
   'DOMContentLoaded',
   asyncListener(async (): Promise<void> => {
-    const openSettingsListener = asyncListener(() => openSettings());
-
-    document.querySelector('.settings')?.addEventListener('click', openSettingsListener);
-    await listen('open-settings', openSettingsListener);
-
-    await listen('status', (event) => updateStatus(event.payload as string));
-
-    await store.onPortChange(
-      asyncListener(async (value) => {
-        await emit('port-changed', value);
-        toggleControls('.controls', Boolean(value));
-        toggleControls('.presets', Boolean(value));
-      })
+    document.querySelector('.settings')?.addEventListener(
+      'click',
+      asyncListener(() => invoke('open_settings'))
     );
 
     document.querySelector('.controls')?.addEventListener(
@@ -105,9 +94,14 @@ window.addEventListener(
       asyncListener((event) => handleControl(event as MouseEvent))
     );
 
+    document.querySelector('.toggles')?.addEventListener('change', asyncListener(handleToggle));
+
     document.querySelector('.presets')?.addEventListener(
       'click',
       asyncListener((event) => goToPreset(event as MouseEvent))
     );
+
+    onStateChange(await invoke('get_state'));
+    await listen<CameraState>('camera-state', ({ payload }) => onStateChange(payload));
   })
 );
