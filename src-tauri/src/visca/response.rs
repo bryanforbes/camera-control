@@ -12,7 +12,7 @@ impl TryFrom<&Bytes> for ResponseKind {
     type Error = Error;
 
     fn try_from(bytes: &Bytes) -> std::result::Result<Self, Self::Error> {
-        match bytes[1] >> 4 {
+        match (bytes[1] >> 4) & 0b0111 {
             4 => Ok(Self::Ack),
             5 => Ok(Self::Completion),
             6 => {
@@ -89,8 +89,10 @@ mod tests {
 
     #[test_case(b"\x90\x40\xFF" => matches Ok(ResponseKind::Ack); "ack 0")]
     #[test_case(b"\x90\x41\xFF" => matches Ok(ResponseKind::Ack); "ack 1")]
+    #[test_case(b"\x90\xC1\xFF" => matches Ok(ResponseKind::Ack); "ack C1")]
     #[test_case(b"\x90\x50\xFF" => matches Ok(ResponseKind::Completion); "completion 0")]
     #[test_case(b"\x90\x51\xFF" => matches Ok(ResponseKind::Completion); "completion 1")]
+    #[test_case(b"\x90\xD1\xFF" => matches Ok(ResponseKind::Completion); "completion D1")]
     #[test_case(b"" => matches Err(Error::InvalidResponse); "empty packet")]
     #[test_case(b"\x90" => matches Err(Error::InvalidResponse); "1 item packet")]
     #[test_case(b"\x90\xFF" => matches Err(Error::InvalidResponse); "2 item packet")]
