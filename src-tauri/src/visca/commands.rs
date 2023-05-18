@@ -1,5 +1,3 @@
-use bytes::{Bytes, BytesMut};
-
 use super::{Error, Result};
 
 fn validate_speed(speed: u8, max: u8) -> Result<u8> {
@@ -24,22 +22,22 @@ pub trait Command {
 }
 
 pub trait Action: Command {
-    fn data(&self) -> Result<Bytes>;
+    fn data(&self) -> Result<Vec<u8>>;
 
-    fn to_bytes(&self) -> Result<Bytes> {
-        let mut bytes = BytesMut::from([0x01, Self::COMMAND_CATEGORY, Self::COMMAND_ID].as_ref());
+    fn to_bytes(&self) -> Result<Vec<u8>> {
+        let mut bytes: Vec<u8> = vec![0x01, Self::COMMAND_CATEGORY, Self::COMMAND_ID];
 
         bytes.extend(self.data()?);
 
-        Ok(bytes.freeze())
+        Ok(bytes)
     }
 }
 
 pub trait Inquiry: Command + Sized {
-    fn from_response_payload(payload: Bytes) -> Result<Self>;
+    fn from_response_payload(payload: &[u8]) -> Result<Self>;
 
-    fn to_bytes() -> Bytes {
-        Bytes::copy_from_slice(&[0x09, Self::COMMAND_CATEGORY, Self::COMMAND_ID])
+    fn to_bytes() -> Vec<u8> {
+        vec![0x09, Self::COMMAND_CATEGORY, Self::COMMAND_ID]
     }
 }
 
@@ -54,13 +52,13 @@ impl Command for Power {
 }
 
 impl Action for Power {
-    fn data(&self) -> Result<Bytes> {
-        Ok(Bytes::copy_from_slice(&[*self as u8]))
+    fn data(&self) -> Result<Vec<u8>> {
+        Ok(vec![*self as u8])
     }
 }
 
 impl Inquiry for Power {
-    fn from_response_payload(payload: Bytes) -> Result<Self> {
+    fn from_response_payload(payload: &[u8]) -> Result<Self> {
         match payload[0] & 0x0F {
             0x02 => Ok(Self::On),
             0x03 => Ok(Self::Off),
@@ -100,8 +98,8 @@ impl Command for Zoom {
 }
 
 impl Action for Zoom {
-    fn data(&self) -> Result<Bytes> {
-        Ok(Bytes::copy_from_slice(&[(*self).into()]))
+    fn data(&self) -> Result<Vec<u8>> {
+        Ok(vec![(*self).into()])
     }
 }
 
@@ -135,13 +133,13 @@ impl Command for Autofocus {
 }
 
 impl Action for Autofocus {
-    fn data(&self) -> Result<Bytes> {
-        Ok(Bytes::copy_from_slice(&[*self as u8]))
+    fn data(&self) -> Result<Vec<u8>> {
+        Ok(vec![*self as u8])
     }
 }
 
 impl Inquiry for Autofocus {
-    fn from_response_payload(payload: Bytes) -> Result<Self> {
+    fn from_response_payload(payload: &[u8]) -> Result<Self> {
         match payload[0] & 0x0F {
             0x02 => Ok(Self::Auto),
             0x03 => Ok(Self::Manual),
@@ -181,8 +179,8 @@ impl Command for Focus {
 }
 
 impl Action for Focus {
-    fn data(&self) -> Result<Bytes> {
-        Ok(Bytes::copy_from_slice(&[*self as u8]))
+    fn data(&self) -> Result<Vec<u8>> {
+        Ok(vec![*self as u8])
     }
 }
 
@@ -210,8 +208,8 @@ impl Command for Preset {
 }
 
 impl Action for Preset {
-    fn data(&self) -> Result<Bytes> {
-        Ok(Bytes::copy_from_slice(&[
+    fn data(&self) -> Result<Vec<u8>> {
+        Ok(vec![
             match *self {
                 Self::Set(_) => 0x01,
                 Self::Recall(_) => 0x02,
@@ -219,7 +217,7 @@ impl Action for Preset {
             match *self {
                 Self::Set(preset) | Self::Recall(preset) => validate_preset(preset)?,
             },
-        ]))
+        ])
     }
 }
 
@@ -237,8 +235,8 @@ impl Command for Move {
 }
 
 impl Action for Move {
-    fn data(&self) -> Result<Bytes> {
-        Ok(Bytes::copy_from_slice(&[
+    fn data(&self) -> Result<Vec<u8>> {
+        Ok(vec![
             match *self {
                 Self::Left(speed) | Self::Right(speed) => validate_speed(speed, 0x18)?,
                 _ => 0x00,
@@ -257,7 +255,7 @@ impl Action for Move {
                 Self::Down(_) => 0x02,
                 Self::Left(_) | Self::Right(_) | Self::Stop => 0x03,
             },
-        ]))
+        ])
     }
 }
 
@@ -265,10 +263,9 @@ impl Action for Move {
 mod tests {
     use super::*;
 
-    use bytes::Bytes;
     use test_case::test_case;
 
-    fn matches_bytes(expected: &'static [u8]) -> impl Fn(Result<Bytes>) {
+    fn matches_bytes(expected: &'static [u8]) -> impl Fn(Result<Vec<u8>>) {
         move |actual| match actual {
             Ok(value) => assert_eq!(value, expected),
             Err(_) => panic!("Error returned"),
@@ -277,23 +274,20 @@ mod tests {
 
     #[test_case(Power::On => using matches_bytes(b"\x01\x04\x00\x02"); "on")]
     #[test_case(Power::Off => using matches_bytes(b"\x01\x04\x00\x03"); "off")]
-    fn test_power_to_bytes(command: Power) -> Result<Bytes> {
+    fn test_power_to_bytes(command: Power) -> Result<Vec<u8>> {
         command.to_bytes()
     }
 
     #[test]
     fn test_power_inquiry_to_bytes() {
-        assert_eq!(
-            <Power as Inquiry>::to_bytes(),
-            Bytes::from_static(b"\x09\x04\x00")
-        );
+        assert_eq!(<Power as Inquiry>::to_bytes(), b"\x09\x04\x00".to_vec());
     }
 
     #[test_case(b"\x02" => matches Ok(Power::On); "on")]
     #[test_case(b"\x03" => matches Ok(Power::Off); "off")]
     #[test_case(b"\x00" => matches Err(Error::InvalidPowerValue); "invalid power value")]
     fn test_power_inquiry_from_response_payload(payload: &'static [u8]) -> Result<Power> {
-        Power::from_response_payload(Bytes::from_static(payload))
+        Power::from_response_payload(&payload)
     }
 
     #[test_case(true => matches Power::On; "on")]
@@ -311,7 +305,7 @@ mod tests {
     #[test_case(Zoom::Stop => using matches_bytes(b"\x01\x04\x07\x00"); "stop")]
     #[test_case(Zoom::Tele => using matches_bytes(b"\x01\x04\x07\x02"); "tele")]
     #[test_case(Zoom::Wide => using matches_bytes(b"\x01\x04\x07\x03"); "wide")]
-    fn test_zoom_to_bytes(command: Zoom) -> Result<Bytes> {
+    fn test_zoom_to_bytes(command: Zoom) -> Result<Vec<u8>> {
         command.to_bytes()
     }
 
@@ -325,16 +319,13 @@ mod tests {
 
     #[test_case(Autofocus::Auto => using matches_bytes(b"\x01\x04\x38\x02"); "auto")]
     #[test_case(Autofocus::Manual => using matches_bytes(b"\x01\x04\x38\x03"); "manual")]
-    fn test_autofocus_to_bytes(autofocus: Autofocus) -> Result<Bytes> {
+    fn test_autofocus_to_bytes(autofocus: Autofocus) -> Result<Vec<u8>> {
         autofocus.to_bytes()
     }
 
     #[test]
     fn test_autofocus_inquiry_to_bytes() {
-        assert_eq!(
-            <Autofocus as Inquiry>::to_bytes(),
-            Bytes::from_static(b"\x09\x04\x38")
-        );
+        assert_eq!(<Autofocus as Inquiry>::to_bytes(), b"\x09\x04\x38".to_vec());
     }
 
     #[test_case(b"\x02" => matches Ok(Autofocus::Auto); "auto")]
@@ -344,7 +335,7 @@ mod tests {
         "invalid autofocus value"
     )]
     fn test_autofocus_from_response_payload(payload: &'static [u8]) -> Result<Autofocus> {
-        Autofocus::from_response_payload(Bytes::from_static(payload))
+        Autofocus::from_response_payload(&payload)
     }
 
     #[test_case(true => matches Autofocus::Auto; "auto")]
@@ -362,7 +353,7 @@ mod tests {
     #[test_case(Focus::Stop => using matches_bytes(b"\x01\x04\x08\x00"); "stop")]
     #[test_case(Focus::Far => using matches_bytes(b"\x01\x04\x08\x02"); "far")]
     #[test_case(Focus::Near => using matches_bytes(b"\x01\x04\x08\x03"); "near")]
-    fn test_focus_to_bytes(focus: Focus) -> Result<Bytes> {
+    fn test_focus_to_bytes(focus: Focus) -> Result<Vec<u8>> {
         focus.to_bytes()
     }
 
@@ -380,7 +371,7 @@ mod tests {
     #[test_case(Preset::Recall(3) => using matches_bytes(b"\x01\x04\x3F\x02\x03"); "recall 3")]
     #[test_case(Preset::Recall(4) => using matches_bytes(b"\x01\x04\x3F\x02\x04"); "recall 4")]
     #[test_case(Preset::Recall(0x10) => matches Err(Error::InvalidPreset); "recall invalid preset")]
-    fn test_preset_to_bytes(preset: Preset) -> Result<Bytes> {
+    fn test_preset_to_bytes(preset: Preset) -> Result<Vec<u8>> {
         preset.to_bytes()
     }
 
@@ -401,7 +392,7 @@ mod tests {
     #[test_case(Move::Right(0x00) => matches Err(Error::InvalidSpeed); "right invalid speed low")]
     #[test_case(Move::Right(0x19) => matches Err(Error::InvalidSpeed); "right invalid speed high")]
     #[test_case(Move::Stop => using matches_bytes(b"\x01\x06\x01\x00\x00\x03\x03"); "stop")]
-    fn test_move_to_bytes(command: Move) -> Result<Bytes> {
+    fn test_move_to_bytes(command: Move) -> Result<Vec<u8>> {
         command.to_bytes()
     }
 }

@@ -1,5 +1,3 @@
-use bytes::Bytes;
-
 use super::Error;
 
 #[derive(Clone, Copy, Debug)]
@@ -8,10 +6,10 @@ pub enum ResponseKind {
     Completion,
 }
 
-impl TryFrom<&Bytes> for ResponseKind {
+impl TryFrom<&Vec<u8>> for ResponseKind {
     type Error = Error;
 
-    fn try_from(bytes: &Bytes) -> std::result::Result<Self, Self::Error> {
+    fn try_from(bytes: &Vec<u8>) -> std::result::Result<Self, Self::Error> {
         match (bytes[1] >> 4) & 0b0111 {
             4 => Ok(Self::Ack),
             5 => Ok(Self::Completion),
@@ -38,7 +36,7 @@ impl TryFrom<&Bytes> for ResponseKind {
 #[derive(Debug)]
 pub struct Response {
     kind: ResponseKind,
-    bytes: Bytes,
+    bytes: Vec<u8>,
 }
 
 impl Response {
@@ -50,15 +48,15 @@ impl Response {
         (self.bytes[0] >> 4) - 8
     }
 
-    pub fn payload(&self) -> Bytes {
-        self.bytes.slice(2..self.bytes.len() - 1)
+    pub fn payload(&self) -> &[u8] {
+        &self.bytes[2..self.bytes.len() - 1]
     }
 }
 
-impl TryFrom<Bytes> for Response {
+impl TryFrom<Vec<u8>> for Response {
     type Error = Error;
 
-    fn try_from(bytes: Bytes) -> std::result::Result<Self, Self::Error> {
+    fn try_from(bytes: Vec<u8>) -> std::result::Result<Self, Self::Error> {
         debug!("bytes: {:?}", bytes);
 
         if bytes.len() < 3 {
@@ -80,7 +78,6 @@ mod tests {
     use test_case::test_case;
 
     fn matches_packet<const N: usize>(expected: [u8; N]) -> impl Fn(Result<Vec<u8>>) {
-        let expected = Vec::from(expected);
         move |actual| match actual {
             Ok(value) => assert_eq!(value, expected),
             Err(_) => panic!("Error returned"),
@@ -106,7 +103,7 @@ mod tests {
     #[test_case(b"\x90\x60\x41\xFF" => matches Err(Error::CommandNotExecutable); "command not executable")]
     #[test_case(b"\x90\x60\x06\xFF" => matches Err(Error::Unknown); "unknown error")]
     fn test_try_from(packet: &'static [u8]) -> Result<ResponseKind> {
-        Ok(Response::try_from(Bytes::from_static(packet))?.kind())
+        Ok(Response::try_from(Vec::from(packet))?.kind())
     }
 
     #[test_case(b"\x90\x40\xFF" => matches Ok(1); "address 1")]
@@ -117,15 +114,13 @@ mod tests {
     #[test_case(b"\xE0\x40\xFF" => matches Ok(6); "address 6")]
     #[test_case(b"\xF0\x40\xFF" => matches Ok(7); "address 7")]
     fn test_address(packet: &'static [u8]) -> Result<u8> {
-        Ok(Response::try_from(Bytes::from_static(packet))?.address())
+        Ok(Response::try_from(Vec::from(packet))?.address())
     }
 
     #[test_case(b"\x90\x41\xFF" => using matches_packet([]); "empty")]
     #[test_case(b"\x90\x41\x02\xFF" => using matches_packet([0x02]); "one item")]
     #[test_case(b"\x90\x41\x02\x03\xFF" => using matches_packet([0x02, 0x03]); "two items")]
     fn test_payload(packet: &'static [u8]) -> Result<Vec<u8>> {
-        Ok(Response::try_from(Bytes::from_static(packet))?
-            .payload()
-            .to_vec())
+        Ok(Response::try_from(Vec::from(packet))?.payload().to_vec())
     }
 }
