@@ -1,9 +1,9 @@
-use core::fmt;
-use std::io::{self, BufRead, BufReader, ErrorKind, Read, Write};
+use std::io::{self, BufRead, BufReader, ErrorKind, Write};
 
 #[cfg(debug_assertions)]
 use bytes::BufMut;
 use bytes::{Bytes, BytesMut};
+use serialport::SerialPort;
 
 use super::{Action, Error, Inquiry, Response, ResponseKind, Result};
 
@@ -44,22 +44,20 @@ fn read_until<R: BufRead + ?Sized>(r: &mut R, delim: u8, buf: &mut BytesMut) -> 
     }
 }
 
-pub struct ViscaPort<T: Read + Write> {
-    reader: BufReader<Box<T>>,
+pub struct ViscaPort {
+    reader: BufReader<Box<dyn SerialPort>>,
+    writer: Box<dyn SerialPort>,
 }
 
-impl<T> ViscaPort<T>
-where
-    T: Read + Write,
-{
-    pub fn new(port: T) -> Self {
+impl ViscaPort {
+    pub fn new(port: Box<dyn SerialPort>) -> Self {
         Self {
-            reader: BufReader::new(Box::new(port)),
+            writer: port.try_clone().unwrap(),
+            reader: BufReader::new(port),
         }
     }
 
     fn send_packet_with_response(&mut self, address: u8, bytes: Bytes) -> Result<Response> {
-        let reader = self.reader.get_mut();
         let address = header_for_address(address)?;
 
         #[cfg(debug_assertions)]
@@ -71,9 +69,13 @@ where
             debug!("Sending: {:02X?}", output_bytes.to_vec());
         }
 
-        reader.write_all(&[address])?;
-        reader.write_all(&bytes)?;
-        reader.write_all(&[0xFF])?;
+        let mut output: Vec<u8> = Vec::with_capacity(16);
+
+        output.push(address);
+        output.extend(bytes);
+        output.push(0xFF);
+
+        self.writer.write_all(&output)?;
 
         let response = self.receive_response()?;
         if let ResponseKind::Completion = response.kind() {
@@ -120,14 +122,5 @@ where
     {
         let response = self.send_packet_with_response(address, R::to_bytes())?;
         R::from_response_payload(response.payload())
-    }
-}
-
-impl<T> fmt::Debug for ViscaPort<T>
-where
-    T: Read + Write + fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ViscaPort ( {:?} )", self.reader.get_ref())
     }
 }

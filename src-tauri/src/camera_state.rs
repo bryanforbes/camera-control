@@ -1,7 +1,7 @@
 use std::{ops::DerefMut, sync::Mutex, time::Duration};
 
 use serde::{Serialize, Serializer};
-use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
+use serialport::{DataBits, FlowControl, Parity, StopBits};
 use tauri::Manager;
 
 use crate::{
@@ -20,7 +20,7 @@ where
 #[derive(Serialize)]
 pub struct CameraState {
     #[serde(skip)]
-    port: Option<ViscaPort<Box<dyn SerialPort>>>,
+    port: Option<ViscaPort>,
 
     #[serde(rename = "port")]
     port_name: Option<String>,
@@ -46,7 +46,7 @@ impl CameraState {
 
         if let Some(path) = path {
             self.port = Some(ViscaPort::new(
-                serialport::new(path, 9000)
+                serialport::new(path, 9600)
                     .data_bits(DataBits::Eight)
                     .flow_control(FlowControl::None)
                     .parity(Parity::None)
