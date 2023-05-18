@@ -8,6 +8,7 @@ function setupDirectionButton(button: HTMLButtonElement): void {
   const direction = button.dataset['direction'];
   const isZoom = direction === 'in' || direction === 'out';
   const command = isZoom ? 'zoom' : 'move_camera';
+  const stop = isZoom ? 'stop_zoom' : 'stop_move';
 
   button.addEventListener(
     'pointerdown',
@@ -20,7 +21,7 @@ function setupDirectionButton(button: HTMLButtonElement): void {
         'pointerup',
         asyncListener(async (event) => {
           try {
-            await invoke('stop');
+            await invoke(stop);
           } finally {
             controller.abort();
             button.releasePointerCapture(event.pointerId);
