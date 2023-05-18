@@ -14,10 +14,7 @@ use std::sync::Mutex;
 
 use camera_state::{CameraState, MutexCameraState};
 use log::debug;
-use tauri::utils::assets::EmbeddedAssets;
-use tauri::{
-    AboutMetadata, Context, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowEvent, Wry,
-};
+use tauri::{AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowEvent, Wry};
 use tauri_plugin_store::{with_store, StoreCollection};
 use tauri_plugin_window_state::StateFlags;
 
@@ -245,62 +242,6 @@ fn get_ports() -> Result<Vec<String>> {
         .collect())
 }
 
-fn create_builder(context: &Context<EmbeddedAssets>) -> tauri::Builder<Wry> {
-    let builder = tauri::Builder::default();
-
-    if cfg!(target_os = "macos") {
-        let app_name: &str = &context.package_info().name;
-        let menu = Menu::new()
-            .add_submenu(Submenu::new(
-                app_name,
-                Menu::new()
-                    .add_native_item(MenuItem::About(
-                        app_name.to_string(),
-                        AboutMetadata::default(),
-                    ))
-                    .add_item(CustomMenuItem::new(
-                        "check-for-updates".to_string(),
-                        "Check for updates...",
-                    ))
-                    .add_native_item(MenuItem::Separator)
-                    .add_item(
-                        CustomMenuItem::new("settings".to_string(), "Settings")
-                            .accelerator("cmd+,"),
-                    )
-                    .add_native_item(MenuItem::Separator)
-                    .add_native_item(MenuItem::Services)
-                    .add_native_item(MenuItem::Separator)
-                    .add_native_item(MenuItem::Hide)
-                    .add_native_item(MenuItem::HideOthers)
-                    .add_native_item(MenuItem::ShowAll)
-                    .add_native_item(MenuItem::Separator)
-                    .add_native_item(MenuItem::Quit),
-            ))
-            .add_submenu(Submenu::new(
-                "Window",
-                Menu::new()
-                    .add_native_item(MenuItem::Minimize)
-                    .add_native_item(MenuItem::Zoom)
-                    .add_native_item(MenuItem::CloseWindow),
-            ));
-
-        builder
-            .updater_target("darwin-universal")
-            .menu(menu)
-            .on_menu_event(|event| match event.menu_item_id() {
-                "settings" => {
-                    open_settings_window(event.window().app_handle()).unwrap_or(());
-                }
-                "check-for-updates" => {
-                    event.window().trigger("tauri://update", None);
-                }
-                _ => {}
-            })
-    } else {
-        builder
-    }
-}
-
 fn main() {
     pretty_env_logger::formatted_builder()
         .filter(
@@ -315,7 +256,62 @@ fn main() {
 
     let context = tauri::generate_context!();
 
-    create_builder(&context)
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default();
+
+    #[cfg(target_os = "macos")]
+    {
+        let app_name: &str = &context.package_info().name;
+
+        builder = builder
+            .updater_target("darwin-universal")
+            .menu(
+                Menu::new()
+                    .add_submenu(Submenu::new(
+                        app_name,
+                        Menu::new()
+                            .add_native_item(MenuItem::About(
+                                app_name.to_string(),
+                                AboutMetadata::default(),
+                            ))
+                            .add_item(CustomMenuItem::new(
+                                "check-for-updates".to_string(),
+                                "Check for updates...",
+                            ))
+                            .add_native_item(MenuItem::Separator)
+                            .add_item(
+                                CustomMenuItem::new("settings".to_string(), "Settings")
+                                    .accelerator("cmd+,"),
+                            )
+                            .add_native_item(MenuItem::Separator)
+                            .add_native_item(MenuItem::Services)
+                            .add_native_item(MenuItem::Separator)
+                            .add_native_item(MenuItem::Hide)
+                            .add_native_item(MenuItem::HideOthers)
+                            .add_native_item(MenuItem::ShowAll)
+                            .add_native_item(MenuItem::Separator)
+                            .add_native_item(MenuItem::Quit),
+                    ))
+                    .add_submenu(Submenu::new(
+                        "Window",
+                        Menu::new()
+                            .add_native_item(MenuItem::Minimize)
+                            .add_native_item(MenuItem::Zoom)
+                            .add_native_item(MenuItem::CloseWindow),
+                    )),
+            )
+            .on_menu_event(|event| match event.menu_item_id() {
+                "settings" => {
+                    open_settings_window(event.window().app_handle()).unwrap_or(());
+                }
+                "check-for-updates" => {
+                    event.window().trigger("tauri://update", None);
+                }
+                _ => {}
+            });
+    }
+
+    builder
         .manage(Mutex::new(CameraState::default()))
         .plugin(
             tauri_plugin_window_state::Builder::default()
