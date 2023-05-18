@@ -61,7 +61,7 @@ impl Action for Power {
 
 impl Inquiry for Power {
     fn from_response_payload(payload: Bytes) -> Result<Self> {
-        match payload[0] {
+        match payload[0] & 0x0F {
             0x02 => Ok(Self::On),
             0x03 => Ok(Self::Off),
             _ => Err(Error::InvalidPowerValue),
@@ -142,7 +142,7 @@ impl Action for Autofocus {
 
 impl Inquiry for Autofocus {
     fn from_response_payload(payload: Bytes) -> Result<Self> {
-        match payload[0] {
+        match payload[0] & 0x0F {
             0x02 => Ok(Self::Auto),
             0x03 => Ok(Self::Manual),
             _ => Err(Error::InvalidAutofocusValue),
