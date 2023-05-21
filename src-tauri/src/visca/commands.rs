@@ -287,7 +287,7 @@ mod tests {
     #[test_case(b"\x03" => matches Ok(Power::Off); "off")]
     #[test_case(b"\x00" => matches Err(Error::InvalidPowerValue); "invalid power value")]
     fn test_power_inquiry_from_response_payload(payload: &'static [u8]) -> Result<Power> {
-        Power::from_response_payload(&payload)
+        Power::from_response_payload(payload)
     }
 
     #[test_case(true => matches Power::On; "on")]
@@ -335,7 +335,7 @@ mod tests {
         "invalid autofocus value"
     )]
     fn test_autofocus_from_response_payload(payload: &'static [u8]) -> Result<Autofocus> {
-        Autofocus::from_response_payload(&payload)
+        Autofocus::from_response_payload(payload)
     }
 
     #[test_case(true => matches Autofocus::Auto; "auto")]
