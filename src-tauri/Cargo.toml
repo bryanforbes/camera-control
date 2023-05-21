@@ -1,10 +1,10 @@
 [package]
 name = "camera-control"
 version = "23.4.7-0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+description = "An application to control the AViPAS camera at CrossLife Community Church"
+authors = ["Bryan Forbes <bryan@reigndropsfall.net>"]
+license = "BSD-3-Clause"
+repository = "https://github.com/bryanforbes/camera-control"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
