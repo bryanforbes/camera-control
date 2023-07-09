@@ -27,11 +27,11 @@ function setupDirectionButton(button: HTMLButtonElement): void {
             button.releasePointerCapture(event.pointerId);
           }
         }),
-        { signal: controller.signal }
+        { signal: controller.signal },
       );
 
       button.setPointerCapture(event.pointerId);
-    })
+    }),
   );
 }
 
@@ -129,21 +129,21 @@ window.addEventListener(
         await invoke('set_port', {
           port: target.options[target.selectedIndex]?.value || null,
         });
-      })
+      }),
     );
 
     for (const button of document.querySelectorAll<HTMLButtonElement>(
-      '.controls [data-direction]'
+      '.controls [data-direction]',
     )) {
       setupDirectionButton(button);
     }
 
     document.querySelector('.presets')?.addEventListener(
       'click',
-      asyncListener((event) => confirmSetPreset(event as MouseEvent))
+      asyncListener((event) => confirmSetPreset(event as MouseEvent)),
     );
 
     onStateChange(await invoke<CameraState>('get_state'));
     await listen<CameraState>('camera-state', (event) => onStateChange(event.payload));
-  })
+  }),
 );

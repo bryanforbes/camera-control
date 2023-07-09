@@ -10,7 +10,7 @@ const commands = {
 
 async function handleToggle(event: Event): Promise<void> {
   const toggle = (event.target as HTMLElement).closest<HTMLInputElement>(
-    'input[type="checkbox"].toggle[data-function]'
+    'input[type="checkbox"].toggle[data-function]',
   );
 
   if (!toggle) {
@@ -86,22 +86,22 @@ window.addEventListener(
   asyncListener(async (): Promise<void> => {
     document.querySelector('.settings')?.addEventListener(
       'click',
-      asyncListener(() => invoke('open_settings'))
+      asyncListener(() => invoke('open_settings')),
     );
 
     document.querySelector('.controls')?.addEventListener(
       'click',
-      asyncListener((event) => handleControl(event as MouseEvent))
+      asyncListener((event) => handleControl(event as MouseEvent)),
     );
 
     document.querySelector('.toggles')?.addEventListener('change', asyncListener(handleToggle));
 
     document.querySelector('.presets')?.addEventListener(
       'click',
-      asyncListener((event) => goToPreset(event as MouseEvent))
+      asyncListener((event) => goToPreset(event as MouseEvent)),
     );
 
     onStateChange(await invoke('get_state'));
     await listen<CameraState>('camera-state', ({ payload }) => onStateChange(payload));
-  })
+  }),
 );

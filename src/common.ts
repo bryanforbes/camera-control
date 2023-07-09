@@ -11,7 +11,7 @@ export interface CameraState {
 export async function invoke<T>(
   cmd: string,
   args?: InvokeArgs,
-  updateStatus?: () => Promise<void> | void
+  updateStatus?: () => Promise<void> | void,
 ): Promise<T> {
   const result = await tauriInvoke<T>(cmd, args);
 
@@ -39,7 +39,7 @@ export function toggleControls(parentSelector: string, enabled: boolean): void {
 
 export function asyncListener<Event, Error>(
   listener: (event: Event) => Promise<unknown>,
-  errorHandler?: (error: Error) => unknown
+  errorHandler?: (error: Error) => unknown,
 ): (event: Event) => void {
   return (event: Event) => {
     listener(event).catch(errorHandler ?? ((error) => console.error(error)));
