@@ -125,9 +125,9 @@ window.addEventListener(
 
         const target = event.target as HTMLSelectElement;
 
-        console.log(target.options[target.selectedIndex]?.value || null);
+        console.log(target.options[target.selectedIndex]?.value ?? null);
         await invoke('set_port', {
-          port: target.options[target.selectedIndex]?.value || null,
+          port: target.options[target.selectedIndex]?.value ?? null,
         });
       }),
     );

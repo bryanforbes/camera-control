@@ -1,8 +1,8 @@
 module.exports = {
   extends: [
     'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
-    'plugin:@typescript-eslint/recommended-requiring-type-checking',
+    'plugin:@typescript-eslint/strict-type-checked',
+    'plugin:@typescript-eslint/stylistic-type-checked',
   ],
   parser: '@typescript-eslint/parser',
   plugins: ['@typescript-eslint'],
@@ -14,6 +14,7 @@ module.exports = {
   ignorePatterns: ['src-tauri/**', 'dist*/**'],
   rules: {
     '@typescript-eslint/restrict-template-expressions': 'off',
+    '@typescript-eslint/no-confusing-void-expression': 'off',
   },
   overrides: [
     {
