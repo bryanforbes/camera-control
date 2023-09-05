@@ -18,9 +18,9 @@
   "devDependencies": {
     "@tauri-apps/cli": "1.4.0",
     "@types/eslint": "8.44.2",
-    "@types/node": "20.5.7",
-    "@typescript-eslint/eslint-plugin": "6.5.0",
-    "@typescript-eslint/parser": "6.5.0",
+    "@types/node": "20.5.9",
+    "@typescript-eslint/eslint-plugin": "6.6.0",
+    "@typescript-eslint/parser": "6.6.0",
     "autoprefixer": "10.4.15",
     "eslint": "8.48.0",
     "husky": "8.0.3",
