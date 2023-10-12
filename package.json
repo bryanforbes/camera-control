@@ -16,13 +16,13 @@
     "tauri-plugin-window-state-api": "github:tauri-apps/tauri-plugin-window-state#v1"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "1.5.0",
-    "@types/eslint": "8.44.2",
-    "@types/node": "20.6.0",
-    "@typescript-eslint/eslint-plugin": "6.7.0",
-    "@typescript-eslint/parser": "6.7.0",
-    "autoprefixer": "10.4.15",
-    "eslint": "8.49.0",
+    "@tauri-apps/cli": "1.5.2",
+    "@types/eslint": "8.44.4",
+    "@types/node": "20.8.5",
+    "@typescript-eslint/eslint-plugin": "6.7.5",
+    "@typescript-eslint/parser": "6.7.5",
+    "autoprefixer": "10.4.16",
+    "eslint": "8.51.0",
     "husky": "8.0.3",
     "lint-staged": "14.0.1",
     "postcss-nesting": "12.0.1",
@@ -31,7 +31,7 @@
     "stylelint-config-standard": "34.0.0",
     "stylelint-order": "6.0.3",
     "typescript": "5.2.2",
-    "vite": "4.4.9",
+    "vite": "4.4.11",
     "vite-plugin-checker": "0.6.2"
   }
 }
