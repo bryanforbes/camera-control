@@ -11,7 +11,7 @@
     "prepare": "husky install"
   },
   "dependencies": {
-    "@tauri-apps/api": "1.5.0",
+    "@tauri-apps/api": "1.5.1",
     "tauri-plugin-store-api": "github:tauri-apps/tauri-plugin-store#v1",
     "tauri-plugin-window-state-api": "github:tauri-apps/tauri-plugin-window-state#v1"
   },
