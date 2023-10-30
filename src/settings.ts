@@ -3,17 +3,22 @@ import { CameraState, asyncListener, displayError, toggleControls } from './comm
 import { ask } from '@tauri-apps/api/dialog';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api';
+import * as commands from './commands';
 
 function setupDirectionButton(button: HTMLButtonElement): void {
   const direction = button.dataset['direction'];
   const isZoom = direction === 'in' || direction === 'out';
-  const command = isZoom ? 'zoom' : 'move_camera';
-  const stop = isZoom ? 'stop_zoom' : 'stop_move';
+  const command = isZoom ? commands.zoom : commands.moveCamera;
+  const stop = isZoom ? commands.stopZoom : commands.stopMove;
+
+  if (!direction) {
+    return;
+  }
 
   button.addEventListener(
     'pointerdown',
     asyncListener(async (event) => {
-      await invoke(command, { direction });
+      await command(direction);
 
       const controller = new AbortController();
 
@@ -21,7 +26,7 @@ function setupDirectionButton(button: HTMLButtonElement): void {
         'pointerup',
         asyncListener(async (event) => {
           try {
-            await invoke(stop);
+            await stop();
           } finally {
             controller.abort();
             button.releasePointerCapture(event.pointerId);
@@ -51,7 +56,7 @@ async function populatePorts(): Promise<void> {
   let ports: string[];
 
   try {
-    ports = await invoke<string[]>('get_ports');
+    ports = await commands.getPorts();
   } catch (e) {
     await displayError(e);
     populating = false;
@@ -91,7 +96,7 @@ async function confirmSetPreset(event: MouseEvent): Promise<void> {
 
   if (confirmed) {
     try {
-      await invoke('set_preset', { preset });
+      await commands.setPreset(preset, presetName);
     } catch (e) {
       await displayError(e);
     }
@@ -126,9 +131,7 @@ window.addEventListener(
         const target = event.target as HTMLSelectElement;
 
         console.log(target.options[target.selectedIndex]?.value ?? null);
-        await invoke('set_port', {
-          port: target.options[target.selectedIndex]?.value ?? null,
-        });
+        await commands.setPort(target.options[target.selectedIndex]?.value ?? null);
       }),
     );
 

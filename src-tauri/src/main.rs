@@ -14,9 +14,11 @@ use std::sync::Mutex;
 
 use camera_state::{CameraState, MutexCameraState};
 use log::debug;
+use specta::collect_types;
 use tauri::{AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowEvent, Wry};
 use tauri_plugin_store::{with_store, StoreCollection};
 use tauri_plugin_window_state::StateFlags;
+use tauri_specta::ts;
 
 use crate::error::Result;
 use crate::visca::{Autofocus, Focus, Move, Power, Preset, Zoom};
@@ -40,6 +42,7 @@ fn open_settings_window(app_handle: tauri::AppHandle) -> Result<()> {
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn open_settings(app_handle: tauri::AppHandle) -> Result<()> {
     open_settings_window(app_handle)
 }
@@ -70,6 +73,7 @@ fn get_state(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn set_port(
     port: Option<String>,
     handle: tauri::AppHandle,
@@ -132,6 +136,7 @@ fn autofocus(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn go_to_preset(
     mutex_state: tauri::State<Mutex<CameraState>>,
     handle: tauri::AppHandle,
@@ -147,6 +152,7 @@ fn go_to_preset(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn set_preset(
     mutex_state: tauri::State<Mutex<CameraState>>,
     handle: tauri::AppHandle,
@@ -162,6 +168,7 @@ fn set_preset(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn move_camera(
     mutex_state: tauri::State<Mutex<CameraState>>,
     handle: tauri::AppHandle,
@@ -185,6 +192,7 @@ fn move_camera(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn stop_move(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle) {
     debug!("Stop Move");
 
@@ -195,6 +203,7 @@ fn stop_move(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHa
 }
 
 #[tauri::command]
+#[specta::specta]
 fn zoom(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle, direction: &str) {
     debug!("Zoom: {}", direction);
 
@@ -205,6 +214,7 @@ fn zoom(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle,
 }
 
 #[tauri::command]
+#[specta::specta]
 fn stop_zoom(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle) {
     debug!("Stop Zoom");
 
@@ -235,6 +245,7 @@ fn stop_focus(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppH
 }
 
 #[tauri::command]
+#[specta::specta]
 fn get_ports() -> Result<Vec<String>> {
     Ok(serialport::available_ports()?
         .into_iter()
@@ -243,6 +254,22 @@ fn get_ports() -> Result<Vec<String>> {
 }
 
 fn main() {
+    ts::export(
+        collect_types![
+            open_settings,
+            set_port,
+            go_to_preset,
+            set_preset,
+            move_camera,
+            stop_move,
+            zoom,
+            stop_zoom,
+            get_ports
+        ],
+        "../src/commands.ts",
+    )
+    .unwrap();
+
     pretty_env_logger::formatted_builder()
         .filter(
             Some("camera_control"),

@@ -2,6 +2,7 @@ import { listen } from '@tauri-apps/api/event';
 // import * as store from './store';
 import { asyncListener, toggleControls, CameraState } from './common';
 import { invoke } from '@tauri-apps/api';
+import * as tauriCommands from './commands';
 
 const commands = {
   power: 'camera_power',
@@ -56,7 +57,7 @@ async function goToPreset(event: MouseEvent): Promise<void> {
     return;
   }
 
-  await invoke('go_to_preset', { preset, presetName });
+  await tauriCommands.goToPreset(preset, presetName);
 }
 
 function onStateChange({ status, port, power, autofocus }: CameraState) {
@@ -86,7 +87,7 @@ window.addEventListener(
   asyncListener(async (): Promise<void> => {
     document.querySelector('.settings')?.addEventListener(
       'click',
-      asyncListener(() => invoke('open_settings')),
+      asyncListener(() => tauriCommands.openSettings()),
     );
 
     document.querySelector('.controls')?.addEventListener(
