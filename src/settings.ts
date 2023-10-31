@@ -1,12 +1,14 @@
-import * as store from './store';
-import { CameraState, asyncListener, displayError, toggleControls } from './common';
 import { ask } from '@tauri-apps/api/dialog';
-import { listen } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api';
-import { commands } from './commands';
+import { commands, events, type PortStateEvent } from './commands';
+import { asyncListener, displayError, toggleControls } from './common';
 
 function setupDirectionButton(button: HTMLButtonElement): void {
   const direction = button.dataset['direction'];
+
+  if (!direction) {
+    return;
+  }
+
   const isZoom = direction === 'in' || direction === 'out';
   const { command, stop } = isZoom
     ? { command: (direction: string) => commands.zoom(direction), stop: () => commands.stopZoom() }
@@ -14,10 +16,6 @@ function setupDirectionButton(button: HTMLButtonElement): void {
         command: (direction: string) => commands.moveCamera(direction),
         stop: () => commands.stopMove(),
       };
-
-  if (!direction) {
-    return;
-  }
 
   button.addEventListener(
     'pointerdown',
@@ -44,19 +42,13 @@ function setupDirectionButton(button: HTMLButtonElement): void {
   );
 }
 
-let portSelect: HTMLSelectElement;
-let populating = false;
-
-async function populatePorts(): Promise<void> {
-  populating = true;
-
+async function populatePorts(portSelect: HTMLSelectElement): Promise<void> {
   while (portSelect.lastChild) {
     portSelect.removeChild(portSelect.lastChild);
   }
 
   portSelect.appendChild(document.createElement('option'));
 
-  const savedPort = await store.getPort();
   let ports: string[];
 
   try {
@@ -69,23 +61,17 @@ async function populatePorts(): Promise<void> {
     ports = result.data;
   } catch (e) {
     await displayError(e);
-    populating = false;
     return;
   }
 
   for (const port of ports) {
     const portOption = document.createElement('option');
 
-    if (port === savedPort) {
-      portOption.selected = true;
-    }
     portOption.value = port;
 
     portOption.appendChild(document.createTextNode(port));
     portSelect.appendChild(portOption);
   }
-
-  populating = false;
 }
 
 async function confirmSetPreset(event: MouseEvent): Promise<void> {
@@ -113,9 +99,25 @@ async function confirmSetPreset(event: MouseEvent): Promise<void> {
   }
 }
 
-function onStateChange({ power }: CameraState) {
-  console.log(power);
-  toggleControls('.controls', power);
+function onStateChange({ port }: PortStateEvent) {
+  console.log(port);
+  toggleControls('.controls', Boolean(port));
+
+  const portSelect = document.querySelector<HTMLSelectElement>('#ports');
+
+  if (!portSelect) {
+    return;
+  }
+
+  for (const option of portSelect.children as Iterable<HTMLOptionElement>) {
+    const value = !option.value ? null : option.value;
+
+    if (value === port && !option.selected) {
+      option.selected = true;
+    } else if (value !== port && option.selected) {
+      option.selected = false;
+    }
+  }
 }
 
 window.addEventListener(
@@ -127,21 +129,16 @@ window.addEventListener(
       return;
     }
 
-    portSelect = port;
+    await populatePorts(port);
 
-    await populatePorts();
-
-    portSelect.addEventListener(
+    port.addEventListener(
       'change',
       asyncListener(async (event) => {
-        if (populating) {
-          return;
-        }
-
         const target = event.target as HTMLSelectElement;
+        const value = target.options[target.selectedIndex]?.value ?? null;
 
-        console.log(target.options[target.selectedIndex]?.value ?? null);
-        await commands.setPort(target.options[target.selectedIndex]?.value ?? null);
+        console.log(value);
+        await commands.setPort(value === '' ? null : value);
       }),
     );
 
@@ -156,7 +153,8 @@ window.addEventListener(
       asyncListener((event) => confirmSetPreset(event as MouseEvent)),
     );
 
-    onStateChange(await invoke<CameraState>('get_state'));
-    await listen<CameraState>('camera-state', (event) => onStateChange(event.payload));
+    await events.portStateEvent.listen(({ payload }) => onStateChange(payload));
+
+    await commands.ready();
   }),
 );

@@ -9,8 +9,15 @@
 
 .controls,
 .presets {
-  column-gap: 4px;
-  row-gap: 4px;
+  gap: 4px;
+}
+
+.controls {
+  display: grid;
+  grid-template:
+    'power-on  . autofocus-on ' auto
+    'power-off . autofocus-off' auto
+    / auto 1fr auto;
 }
 
 .toggles {
@@ -41,6 +48,22 @@
 
 .autofocus {
   grid-area: autofocus;
+}
+
+[data-function='power-on'] {
+  grid-area: power-on;
+}
+
+[data-function='power-off'] {
+  grid-area: power-off;
+}
+
+[data-function='autofocus-on'] {
+  grid-area: autofocus-on;
+}
+
+[data-function='autofocus-off'] {
+  grid-area: autofocus-off;
 }
 
 [data-preset-name]::before {

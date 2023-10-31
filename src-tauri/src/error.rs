@@ -20,13 +20,6 @@ pub enum Error {
     ),
 
     #[error(transparent)]
-    Visca(
-        #[from]
-        #[serde(skip)]
-        crate::visca::Error,
-    ),
-
-    #[error(transparent)]
     Tauri(
         #[from]
         #[serde(skip)]
@@ -38,6 +31,13 @@ pub enum Error {
         #[from]
         #[serde(skip)]
         tauri_plugin_store::Error,
+    ),
+
+    #[error(transparent)]
+    PelcoD(
+        #[from]
+        #[serde(skip)]
+        pelcodrs::Error,
     ),
 }
 

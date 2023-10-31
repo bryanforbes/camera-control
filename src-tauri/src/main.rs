@@ -1,25 +1,24 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-extern crate pretty_env_logger;
-#[macro_use]
 extern crate log;
+extern crate pretty_env_logger;
 
-mod camera_state;
 mod error;
-mod visca;
+mod port_state;
 
 use std::ops::Deref;
 use std::sync::Mutex;
 
-use camera_state::{CameraState, MutexCameraState};
 use log::debug;
+use pelcodrs::{AutoCtrl, Direction, Message, MessageBuilder, Speed};
+use port_state::{MutexPortState, PortState, PortStateEvent};
 use tauri::{AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowEvent, Wry};
 use tauri_plugin_store::{with_store, StoreCollection};
 use tauri_plugin_window_state::StateFlags;
+use tauri_specta::Event;
 
 use crate::error::Result;
-use crate::visca::{Autofocus, Focus, Move, Power, Preset, Zoom};
 
 fn open_settings_window(app_handle: tauri::AppHandle) -> Result<()> {
     if let Some(window) = app_handle.get_window("settings") {
@@ -46,12 +45,13 @@ async fn open_settings(app_handle: tauri::AppHandle) -> Result<()> {
 }
 
 #[tauri::command]
-fn get_state(
+#[specta::specta]
+fn ready(
     window: tauri::Window,
     handle: tauri::AppHandle,
-    mutex_state: tauri::State<Mutex<CameraState>>,
+    mutex_state: tauri::State<Mutex<PortState>>,
     stores: tauri::State<StoreCollection<Wry>>,
-) -> Result<serde_json::Value> {
+) -> Result<()> {
     let mut state = mutex_state.lock().unwrap();
 
     if window.label() == "main" {
@@ -67,7 +67,9 @@ fn get_state(
         }
     }
 
-    Ok(serde_json::to_value(state.deref()).unwrap())
+    PortStateEvent::from(state.deref()).emit(&window).ok();
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -75,7 +77,7 @@ fn get_state(
 fn set_port(
     port: Option<String>,
     handle: tauri::AppHandle,
-    mutex_state: tauri::State<Mutex<CameraState>>,
+    mutex_state: tauri::State<Mutex<PortState>>,
     stores: tauri::State<StoreCollection<Wry>>,
 ) -> Result<()> {
     debug!("Port name: {:?}", port);
@@ -87,56 +89,69 @@ fn set_port(
 
     let mut state = mutex_state.lock().unwrap();
 
-    /*if port.is_some() {
-        state.set_status("Connecting");
-        state.send(&handle);
-    }*/
-
     if let Err(error) = state.set_port(port.as_deref()) {
         debug!("Error: {}", error);
         state.set_status(error.to_string());
     }
-    state.send(&handle);
+
+    PortStateEvent::from(state.deref()).emit_all(&handle).ok();
 
     Ok(())
 }
 
 #[tauri::command]
+#[specta::specta]
 fn camera_power(
-    mutex_state: tauri::State<Mutex<CameraState>>,
+    mutex_state: tauri::State<Mutex<PortState>>,
     handle: tauri::AppHandle,
     power: bool,
 ) {
-    let power: Power = power.into();
-
     debug!("Power: {:?}", power);
 
     mutex_state.with_state_and_status(&handle, |state| {
-        state.set_power(1, power)?;
-        Ok(format!("Power {:?}", power))
+        let mut builder = MessageBuilder::new(1);
+
+        if power {
+            builder = *builder.camera_on();
+        } else {
+            builder = *builder.camera_off();
+        }
+
+        state.send_message(builder.finalize()?)?;
+
+        Ok(format!("Power {:?}", if power { "on" } else { "off" }))
     });
 }
 
 #[tauri::command]
+#[specta::specta]
 fn autofocus(
-    mutex_state: tauri::State<Mutex<CameraState>>,
+    mutex_state: tauri::State<Mutex<PortState>>,
     handle: tauri::AppHandle,
     autofocus: bool,
 ) {
-    let autofocus: Autofocus = autofocus.into();
-
     debug!("Autofocus: {:?}", autofocus);
 
     mutex_state.with_state_and_status(&handle, |state| {
-        state.set_autofocus(1, autofocus)?;
-        Ok(format!("Autofocus {:?}", autofocus))
+        state.send_message(Message::auto_focus(
+            1,
+            if autofocus {
+                AutoCtrl::Auto
+            } else {
+                AutoCtrl::Off
+            },
+        )?)?;
+        Ok(format!(
+            "Autofocus {:?}",
+            if autofocus { "on" } else { "off" }
+        ))
     });
 }
 
 #[tauri::command]
 #[specta::specta]
 fn go_to_preset(
-    mutex_state: tauri::State<Mutex<CameraState>>,
+    mutex_state: tauri::State<Mutex<PortState>>,
     handle: tauri::AppHandle,
     preset: u8,
     preset_name: String,
@@ -144,7 +159,7 @@ fn go_to_preset(
     debug!("Go To Preset: {}", preset);
 
     mutex_state.with_state_and_status(&handle, |state| {
-        state.execute(1, Preset::Recall(preset))?;
+        state.send_message(Message::go_to_preset(1, preset)?)?;
         Ok(preset_name)
     });
 }
@@ -152,7 +167,7 @@ fn go_to_preset(
 #[tauri::command]
 #[specta::specta]
 fn set_preset(
-    mutex_state: tauri::State<Mutex<CameraState>>,
+    mutex_state: tauri::State<Mutex<PortState>>,
     handle: tauri::AppHandle,
     preset: u8,
     preset_name: String,
@@ -160,7 +175,7 @@ fn set_preset(
     debug!("Set Preset: {}", preset);
 
     mutex_state.with_state_and_status(&handle, |state| {
-        state.execute(1, Preset::Set(preset))?;
+        state.send_message(Message::set_preset(1, preset)?)?;
         Ok(format!("Set {}", preset_name))
     });
 }
@@ -168,22 +183,24 @@ fn set_preset(
 #[tauri::command]
 #[specta::specta]
 fn move_camera(
-    mutex_state: tauri::State<Mutex<CameraState>>,
+    mutex_state: tauri::State<Mutex<PortState>>,
     handle: tauri::AppHandle,
     direction: &str,
 ) {
     debug!("Direction: {}", direction);
 
     mutex_state.with_state_and_status(&handle, |state| {
-        state.execute(
-            1,
-            match direction {
-                "left" => Move::Left(1),
-                "right" => Move::Right(1),
-                "up" => Move::Up(1),
-                "down" => Move::Down(1),
-                _ => Move::Stop,
-            },
+        state.send_message(
+            MessageBuilder::new(1)
+                .pan(Speed::Range(0.01))
+                .tilt(Speed::Range(0.01))
+                .direction(match direction {
+                    "left" => Direction::LEFT,
+                    "up" => Direction::UP,
+                    "right" => Direction::RIGHT,
+                    &_ => Direction::DOWN,
+                })
+                .finalize()?,
         )?;
         Ok(format!("Moving {}", direction))
     });
@@ -191,54 +208,42 @@ fn move_camera(
 
 #[tauri::command]
 #[specta::specta]
-fn stop_move(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle) {
+fn stop_move(mutex_state: tauri::State<Mutex<PortState>>, handle: tauri::AppHandle) {
     debug!("Stop Move");
 
     mutex_state.with_state_and_status(&handle, |state| {
-        state.execute(1, Move::Stop)?;
-        Ok("Done stopping".into())
+        state.send_message(MessageBuilder::new(1).stop().finalize()?)?;
+        Ok("Done moving".into())
     });
 }
 
 #[tauri::command]
 #[specta::specta]
-fn zoom(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle, direction: &str) {
+fn zoom(mutex_state: tauri::State<Mutex<PortState>>, handle: tauri::AppHandle, direction: &str) {
     debug!("Zoom: {}", direction);
 
     mutex_state.with_state_and_status(&handle, |state| {
-        state.execute(1, Zoom::try_from(direction)?)?;
+        let mut builder = MessageBuilder::new(1);
+
+        if direction == "in" {
+            builder = *builder.zoom_in();
+        } else {
+            builder = *builder.zoom_out();
+        }
+
+        state.send_message(builder.finalize()?)?;
         Ok(format!("Zooming {}", direction))
     });
 }
 
 #[tauri::command]
 #[specta::specta]
-fn stop_zoom(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle) {
+fn stop_zoom(mutex_state: tauri::State<Mutex<PortState>>, handle: tauri::AppHandle) {
     debug!("Stop Zoom");
 
     mutex_state.with_state_and_status(&handle, |state| {
-        state.execute(1, Zoom::Stop)?;
+        state.send_message(MessageBuilder::new(1).stop().finalize()?)?;
         Ok("Done zooming".into())
-    });
-}
-
-#[tauri::command]
-fn focus(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle, direction: &str) {
-    debug!("Focus: {}", direction);
-
-    mutex_state.with_state_and_status(&handle, |state| {
-        state.execute(1, Focus::try_from(direction)?)?;
-        Ok(format!("Focusing {}", direction))
-    });
-}
-
-#[tauri::command]
-fn stop_focus(mutex_state: tauri::State<Mutex<CameraState>>, handle: tauri::AppHandle) {
-    debug!("Stop Focus");
-
-    mutex_state.with_state_and_status(&handle, |state| {
-        state.execute(1, Focus::Stop)?;
-        Ok("Done focusing".into())
     });
 }
 
@@ -252,27 +257,6 @@ fn get_ports() -> Result<Vec<String>> {
 }
 
 fn main() {
-    let specta_builder = {
-        let builder = tauri_specta::ts::builder()
-            .commands(tauri_specta::collect_commands![
-                open_settings,
-                set_port,
-                go_to_preset,
-                set_preset,
-                move_camera,
-                stop_move,
-                zoom,
-                stop_zoom,
-                get_ports
-            ])
-            .header("// @ts-nocheck\n");
-
-        #[cfg(debug_assertions)]
-        let builder = builder.path("../src/commands.ts");
-
-        builder.into_plugin()
-    };
-
     pretty_env_logger::formatted_builder()
         .filter(
             Some("camera_control"),
@@ -342,16 +326,39 @@ fn main() {
     }
 
     builder
-        .manage(Mutex::new(CameraState::default()))
+        .manage(Mutex::new(PortState::default()))
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(StateFlags::POSITION)
                 .build(),
         )
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(specta_builder)
+        .plugin({
+            let builder = tauri_specta::ts::builder()
+                .commands(tauri_specta::collect_commands![
+                    open_settings,
+                    ready,
+                    set_port,
+                    camera_power,
+                    autofocus,
+                    go_to_preset,
+                    set_preset,
+                    move_camera,
+                    stop_move,
+                    zoom,
+                    stop_zoom,
+                    get_ports
+                ])
+                .events(tauri_specta::collect_events![PortStateEvent])
+                .header("// @ts-nocheck\n");
+
+            #[cfg(debug_assertions)]
+            let builder = builder.path("../src/commands.ts");
+
+            builder.into_plugin()
+        })
         .invoke_handler(tauri::generate_handler![
-            get_state,
+            ready,
             set_port,
             open_settings,
             camera_power,
@@ -363,8 +370,6 @@ fn main() {
             stop_move,
             zoom,
             stop_zoom,
-            focus,
-            stop_focus,
         ])
         .on_window_event(|event| {
             if let WindowEvent::Destroyed = event.event() {

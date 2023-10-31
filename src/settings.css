@@ -26,8 +26,7 @@
 .controls,
 .directions,
 .presets {
-  column-gap: 4px;
-  row-gap: 4px;
+  gap: 4px;
 }
 
 [data-direction='left'] {

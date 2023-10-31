@@ -1,5 +1,5 @@
 import { message } from '@tauri-apps/api/dialog';
-import { InvokeArgs, invoke as tauriInvoke } from '@tauri-apps/api/tauri';
+import { invoke as tauriInvoke, type InvokeArgs } from '@tauri-apps/api/tauri';
 
 export interface CameraState {
   power: boolean;

@@ -11,14 +11,13 @@
 
   <body>
     <main class="main">
-      <section class="toggles">
-        <label class="power" inert
-          >Power: <input type="checkbox" class="toggle" data-function="power"
-        /></label>
-        <label class="autofocus" inert
-          >Autofocus:
-          <input type="checkbox" class="toggle" data-function="autofocus"
-        /></label>
+      <section class="controls" inert>
+        <button type="button" data-function="power-on">Power on</button>
+        <button type="button" data-function="power-off">Power off</button>
+        <button type="button" data-function="autofocus-on">Autofocus on</button>
+        <button type="button" data-function="autofocus-off">
+          Autofocus off
+        </button>
       </section>
       <section class="presets" inert>
         <button
