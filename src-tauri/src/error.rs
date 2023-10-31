@@ -1,24 +1,44 @@
 use thiserror::Error as ThisError;
 
-#[derive(ThisError, Debug)]
+#[derive(ThisError, Debug, specta::Type)]
 pub enum Error {
     #[error("no port set")]
     NoPortSet,
 
     #[error(transparent)]
-    Io(#[from] std::io::Error),
+    Io(
+        #[from]
+        #[serde(skip)]
+        std::io::Error,
+    ),
 
     #[error(transparent)]
-    SerialPort(#[from] serialport::Error),
+    SerialPort(
+        #[from]
+        #[serde(skip)]
+        serialport::Error,
+    ),
 
     #[error(transparent)]
-    Visca(#[from] crate::visca::Error),
+    Visca(
+        #[from]
+        #[serde(skip)]
+        crate::visca::Error,
+    ),
 
     #[error(transparent)]
-    Tauri(#[from] tauri::Error),
+    Tauri(
+        #[from]
+        #[serde(skip)]
+        tauri::Error,
+    ),
 
     #[error(transparent)]
-    Store(#[from] tauri_plugin_store::Error),
+    Store(
+        #[from]
+        #[serde(skip)]
+        tauri_plugin_store::Error,
+    ),
 }
 
 impl serde::Serialize for Error {

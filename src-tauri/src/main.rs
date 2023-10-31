@@ -14,11 +14,9 @@ use std::sync::Mutex;
 
 use camera_state::{CameraState, MutexCameraState};
 use log::debug;
-use specta::collect_types;
 use tauri::{AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowEvent, Wry};
 use tauri_plugin_store::{with_store, StoreCollection};
 use tauri_plugin_window_state::StateFlags;
-use tauri_specta::ts;
 
 use crate::error::Result;
 use crate::visca::{Autofocus, Focus, Move, Power, Preset, Zoom};
@@ -254,21 +252,26 @@ fn get_ports() -> Result<Vec<String>> {
 }
 
 fn main() {
-    ts::export(
-        collect_types![
-            open_settings,
-            set_port,
-            go_to_preset,
-            set_preset,
-            move_camera,
-            stop_move,
-            zoom,
-            stop_zoom,
-            get_ports
-        ],
-        "../src/commands.ts",
-    )
-    .unwrap();
+    let specta_builder = {
+        let builder = tauri_specta::ts::builder()
+            .commands(tauri_specta::collect_commands![
+                open_settings,
+                set_port,
+                go_to_preset,
+                set_preset,
+                move_camera,
+                stop_move,
+                zoom,
+                stop_zoom,
+                get_ports
+            ])
+            .header("// @ts-nocheck\n");
+
+        #[cfg(debug_assertions)]
+        let builder = builder.path("../src/commands.ts");
+
+        builder.into_plugin()
+    };
 
     pretty_env_logger::formatted_builder()
         .filter(
@@ -346,6 +349,7 @@ fn main() {
                 .build(),
         )
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(specta_builder)
         .invoke_handler(tauri::generate_handler![
             get_state,
             set_port,

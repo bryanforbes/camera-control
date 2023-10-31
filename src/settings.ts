@@ -3,13 +3,17 @@ import { CameraState, asyncListener, displayError, toggleControls } from './comm
 import { ask } from '@tauri-apps/api/dialog';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api';
-import * as commands from './commands';
+import { commands } from './commands';
 
 function setupDirectionButton(button: HTMLButtonElement): void {
   const direction = button.dataset['direction'];
   const isZoom = direction === 'in' || direction === 'out';
-  const command = isZoom ? commands.zoom : commands.moveCamera;
-  const stop = isZoom ? commands.stopZoom : commands.stopMove;
+  const { command, stop } = isZoom
+    ? { command: (direction: string) => commands.zoom(direction), stop: () => commands.stopZoom() }
+    : {
+        command: (direction: string) => commands.moveCamera(direction),
+        stop: () => commands.stopMove(),
+      };
 
   if (!direction) {
     return;
@@ -56,7 +60,13 @@ async function populatePorts(): Promise<void> {
   let ports: string[];
 
   try {
-    ports = await commands.getPorts();
+    const result = await commands.getPorts();
+
+    if (result.status === 'error') {
+      throw new Error(result.error);
+    }
+
+    ports = result.data;
   } catch (e) {
     await displayError(e);
     populating = false;

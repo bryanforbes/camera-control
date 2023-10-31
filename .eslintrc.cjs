@@ -11,7 +11,7 @@ module.exports = {
     tsconfigRootDir: __dirname,
   },
   root: true,
-  ignorePatterns: ['src-tauri/**', 'dist*/**'],
+  ignorePatterns: ['src/commands.ts', 'src-tauri/**', 'dist*/**'],
   rules: {
     '@typescript-eslint/restrict-template-expressions': 'off',
     '@typescript-eslint/no-confusing-void-expression': 'off',

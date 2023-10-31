@@ -2,7 +2,7 @@ import { listen } from '@tauri-apps/api/event';
 // import * as store from './store';
 import { asyncListener, toggleControls, CameraState } from './common';
 import { invoke } from '@tauri-apps/api';
-import * as tauriCommands from './commands';
+import { commands as tauriCommands } from './commands';
 
 const commands = {
   power: 'camera_power',
