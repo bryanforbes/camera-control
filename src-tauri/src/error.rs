@@ -1,6 +1,7 @@
+use serde::Serialize;
 use thiserror::Error as ThisError;
 
-#[derive(ThisError, Debug, specta::Type)]
+#[derive(ThisError, Debug, Serialize, specta::Type)]
 pub enum Error {
     #[error("no port set")]
     NoPortSet,
@@ -39,15 +40,6 @@ pub enum Error {
         #[serde(skip)]
         pelcodrs::Error,
     ),
-}
-
-impl serde::Serialize for Error {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(self.to_string().as_ref())
-    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

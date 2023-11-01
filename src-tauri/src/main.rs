@@ -7,8 +7,10 @@ extern crate pretty_env_logger;
 mod error;
 mod port_state;
 
-use std::ops::Deref;
+use std::io;
+use std::process::Command;
 use std::sync::Mutex;
+use std::{ops::Deref, path::PathBuf};
 
 use log::debug;
 use pelcodrs::{AutoCtrl, Direction, Message, MessageBuilder, Speed};
@@ -256,6 +258,15 @@ fn get_ports() -> Result<Vec<String>> {
         .collect())
 }
 
+fn prettier(file: PathBuf) -> io::Result<()> {
+    Command::new("../node_modules/.bin/prettier")
+        .arg("--write")
+        .arg(file)
+        .output()
+        .map(|_| ())
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+}
+
 fn main() {
     pretty_env_logger::formatted_builder()
         .filter(
@@ -349,11 +360,13 @@ fn main() {
                     stop_zoom,
                     get_ports
                 ])
-                .events(tauri_specta::collect_events![PortStateEvent])
-                .header("// @ts-nocheck\n");
+                .events(tauri_specta::collect_events![PortStateEvent]);
 
             #[cfg(debug_assertions)]
-            let builder = builder.path("../src/commands.ts");
+            let builder = builder
+                .path("../src/commands.ts")
+                .config(specta::ts::ExportConfig::default().formatter(prettier))
+                .header("// @ts-nocheck\n");
 
             builder.into_plugin()
         })
