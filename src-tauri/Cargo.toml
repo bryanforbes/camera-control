@@ -24,7 +24,7 @@ tauri-specta = { version = "=2.0.0-rc.3", features = ["typescript"] }
 thiserror = "=1.0.50"
 log = "=0.4.20"
 pretty_env_logger = "=0.5.0"
-pelcodrs = "0.2.1"
+pelcodrs = "=0.2.1"
 
 [dev-dependencies]
 test-case = "=3.2.1"
