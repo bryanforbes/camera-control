@@ -1,10 +1,9 @@
 import { message } from '@tauri-apps/api/dialog';
+import type { EventName, UnlistenFn } from '@tauri-apps/api/event';
+import { listen as tauriListen } from '@tauri-apps/api/event';
 import { invoke as tauriInvoke, type InvokeArgs } from '@tauri-apps/api/tauri';
 
-export interface CameraState {
-  power: boolean;
-  autofocus: boolean;
-  status: string;
+export interface PortState {
   port: string | null;
 }
 
@@ -20,6 +19,13 @@ export async function invoke<T>(
   }
 
   return result;
+}
+
+export async function listen<T>(
+  event: EventName,
+  handler: (payload: T) => void,
+): Promise<UnlistenFn> {
+  return tauriListen<T>(event, ({ payload }) => handler(payload));
 }
 
 export async function displayError(e: unknown): Promise<void> {

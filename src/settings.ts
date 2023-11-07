@@ -1,6 +1,14 @@
 import { ask } from '@tauri-apps/api/dialog';
-import { commands, events, type PortStateEvent } from './commands';
-import { asyncListener, displayError, toggleControls } from './common';
+import { WebviewWindow } from '@tauri-apps/api/window';
+import { asyncListener, invoke, listen, toggleControls, type PortState } from './common';
+
+async function setStatus(status: string): Promise<void> {
+  return WebviewWindow.getByLabel('main')?.emit('status', status);
+}
+
+async function setErrorStatus(error: unknown): Promise<void> {
+  return setStatus(`Error: ${error}`);
+}
 
 function setupDirectionButton(button: HTMLButtonElement): void {
   const direction = button.dataset['direction'];
@@ -10,17 +18,22 @@ function setupDirectionButton(button: HTMLButtonElement): void {
   }
 
   const isZoom = direction === 'in' || direction === 'out';
-  const { command, stop } = isZoom
-    ? { command: (direction: string) => commands.zoom(direction), stop: () => commands.stopZoom() }
-    : {
-        command: (direction: string) => commands.moveCamera(direction),
-        stop: () => commands.stopMove(),
-      };
+  const command = isZoom ? 'zoom' : 'move_camera';
+  const stopCommand = isZoom ? 'stop_zoom' : 'stop_move';
+  const status = `${isZoom ? 'Zooming' : 'Moving'} ${direction}`;
+  const statusSetter = () => setStatus(status);
+  const stopStatus = `Done ${isZoom ? 'zooming' : 'moving'}`;
+  const stopStatusSetter = () => setStatus(stopStatus);
 
   button.addEventListener(
     'pointerdown',
     asyncListener(async (event) => {
-      await command(direction);
+      try {
+        await invoke(command, { direction }, statusSetter);
+      } catch (e) {
+        await setErrorStatus(e);
+        return;
+      }
 
       const controller = new AbortController();
 
@@ -28,7 +41,9 @@ function setupDirectionButton(button: HTMLButtonElement): void {
         'pointerup',
         asyncListener(async (event) => {
           try {
-            await stop();
+            await invoke(stopCommand, undefined, stopStatusSetter);
+          } catch (e) {
+            await setErrorStatus(e);
           } finally {
             controller.abort();
             button.releasePointerCapture(event.pointerId);
@@ -49,20 +64,7 @@ async function populatePorts(portSelect: HTMLSelectElement): Promise<void> {
 
   portSelect.appendChild(document.createElement('option'));
 
-  let ports: string[];
-
-  try {
-    const result = await commands.getPorts();
-
-    if (result.status === 'error') {
-      throw new Error(result.error);
-    }
-
-    ports = result.data;
-  } catch (e) {
-    await displayError(e);
-    return;
-  }
+  const ports = await invoke<string[]>('get_ports');
 
   for (const port of ports) {
     const portOption = document.createElement('option');
@@ -92,15 +94,14 @@ async function confirmSetPreset(event: MouseEvent): Promise<void> {
 
   if (confirmed) {
     try {
-      await commands.setPreset(preset, presetName);
+      await invoke('set_preset', { preset }, () => setStatus(`Set ${presetName}`));
     } catch (e) {
-      await displayError(e);
+      await setErrorStatus(e);
     }
   }
 }
 
-function onStateChange({ port }: PortStateEvent) {
-  console.log(port);
+function onStateChange({ port }: PortState) {
   toggleControls('.controls', Boolean(port));
 
   const portSelect = document.querySelector<HTMLSelectElement>('#ports');
@@ -129,7 +130,12 @@ window.addEventListener(
       return;
     }
 
-    await populatePorts(port);
+    try {
+      await populatePorts(port);
+    } catch (e) {
+      await setErrorStatus(e);
+      return;
+    }
 
     port.addEventListener(
       'change',
@@ -138,7 +144,11 @@ window.addEventListener(
         const value = target.options[target.selectedIndex]?.value ?? null;
 
         console.log(value);
-        await commands.setPort(value === '' ? null : value);
+        try {
+          await invoke('set_port', { portName: value === '' ? null : value });
+        } catch (e) {
+          await setErrorStatus(e);
+        }
       }),
     );
 
@@ -153,8 +163,8 @@ window.addEventListener(
       asyncListener((event) => confirmSetPreset(event as MouseEvent)),
     );
 
-    await events.portStateEvent.listen(({ payload }) => onStateChange(payload));
+    await listen<PortState>('port-state', onStateChange);
 
-    await commands.ready();
+    await invoke('ready');
   }),
 );

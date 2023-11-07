@@ -1,5 +1,14 @@
-import { commands, events, type PortStateEvent } from './commands';
-import { asyncListener, toggleControls } from './common';
+import { asyncListener, invoke, listen, toggleControls, type PortState } from './common';
+
+function setStatus(status: string) {
+  const statusNode = document.querySelector<HTMLParagraphElement>('.status');
+
+  if (!statusNode) {
+    return;
+  }
+
+  statusNode.innerText = status;
+}
 
 async function goToPreset(event: MouseEvent): Promise<void> {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-preset]');
@@ -9,25 +18,24 @@ async function goToPreset(event: MouseEvent): Promise<void> {
   }
 
   const preset = parseInt(button.dataset['preset'] ?? '', 10);
-  const presetName = button.dataset['presetName'];
+  const presetName = button.dataset['presetName'] ?? 'Unknown';
 
-  if (isNaN(preset) || presetName == null) {
+  if (isNaN(preset)) {
     return;
   }
 
-  await commands.goToPreset(preset, presetName);
+  try {
+    await invoke('go_to_preset', { preset }, () => setStatus(presetName));
+  } catch (e) {
+    setStatus(`Error: ${e}`);
+  }
 }
 
-function onStateChange({ status, port }: PortStateEvent) {
-  toggleControls('.power', Boolean(port));
+function onStateChange({ port }: PortState) {
+  toggleControls('.controls', Boolean(port));
   toggleControls('.presets', Boolean(port));
 
-  console.log(status);
-
-  const statusElement = document.querySelector('.status');
-  if (statusElement) {
-    statusElement.textContent = status;
-  }
+  setStatus(port ? 'Connected' : 'Disconnected');
 }
 
 window.addEventListener(
@@ -35,7 +43,7 @@ window.addEventListener(
   asyncListener(async (): Promise<void> => {
     document.querySelector('.settings')?.addEventListener(
       'click',
-      asyncListener(() => commands.openSettings()),
+      asyncListener(() => invoke('open_settings')),
     );
 
     document.querySelector('.presets')?.addEventListener(
@@ -43,8 +51,9 @@ window.addEventListener(
       asyncListener((event) => goToPreset(event as MouseEvent)),
     );
 
-    await events.portStateEvent.listen(({ payload }) => onStateChange(payload));
+    await listen<PortState>('port-state', onStateChange);
+    await listen('status', setStatus);
 
-    await commands.ready();
+    await invoke('ready');
   }),
 );

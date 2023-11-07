@@ -24,12 +24,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "Inflector"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
-
-[[package]]
 name = "addr2line"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -309,12 +303,10 @@ dependencies = [
  "serde",
  "serde_json",
  "serialport",
- "specta",
  "tauri",
  "tauri-build",
  "tauri-plugin-store",
  "tauri-plugin-window-state",
- "tauri-specta",
  "test-case",
  "thiserror",
 ]
@@ -1511,12 +1503,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "indoc"
-version = "2.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e186cfbae8084e513daff4240b4797e342f988cecda4fb6c939150f96315fd8"
-
-[[package]]
 name = "infer"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2183,12 +2169,6 @@ dependencies = [
  "smallvec",
  "windows-targets",
 ]
-
-[[package]]
-name = "paste"
-version = "1.0.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 
 [[package]]
 name = "pelcodrs"
@@ -3056,32 +3036,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "specta"
-version = "2.0.0-rc.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e14773f94824a7f698ac2457ac90e8042f8b8e6e3d340b9fe9d4c5a3a2492203"
-dependencies = [
- "once_cell",
- "paste",
- "serde",
- "specta-macros",
- "tauri",
- "thiserror",
-]
-
-[[package]]
-name = "specta-macros"
-version = "2.0.0-rc.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14363e2a9ff7d07fdf6a138a8637ba980da8144b181536ed0f3b445a5f02f949"
-dependencies = [
- "Inflector",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3454,34 +3408,6 @@ dependencies = [
  "webview2-com",
  "windows 0.39.0",
  "wry",
-]
-
-[[package]]
-name = "tauri-specta"
-version = "2.0.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d09e20a525616b4477e987cc599ae8e6df51dec0b44965a8fdc5ef28f96a0f0"
-dependencies = [
- "heck 0.4.1",
- "indoc",
- "serde",
- "serde_json",
- "specta",
- "tauri",
- "tauri-specta-macros",
- "thiserror",
-]
-
-[[package]]
-name = "tauri-specta-macros"
-version = "2.0.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5084c067dd1c81d8aacb467732ab3fd49b8ec587446bee9f22b7d15a299b9ba7"
-dependencies = [
- "heck 0.4.1",
- "proc-macro2",
- "quote",
- "syn 2.0.38",
 ]
 
 [[package]]

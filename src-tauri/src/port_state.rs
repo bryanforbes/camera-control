@@ -1,121 +1,125 @@
-use pelcodrs::{Message, PelcoDPort};
+use pelcodrs::Message;
+use serde::Serialize;
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
-use std::{
-    ops::{Deref, DerefMut},
-    sync::Mutex,
-};
-use tauri_specta::Event;
+use std::{ops::DerefMut, sync::Mutex};
+use tauri::Manager;
+use tauri_plugin_store::{with_store, StoreCollection};
 
 use crate::error::{Error, Result};
-use serde::{Deserialize, Serialize};
 
-pub struct PortState {
-    port: Option<PelcoDPort<Box<dyn SerialPort>>>,
-    port_name: Option<String>,
-    status: String,
+#[derive(Default)]
+pub struct Port {
+    port: Option<Box<dyn SerialPort>>,
 }
 
-impl PortState {
-    pub fn send_message(&mut self, message: Message) -> Result<()> {
-        match self.port.as_mut() {
-            Some(port) => Ok(port.send_message(message)?),
-            None => Err(Error::NoPortSet),
-        }
+impl Port {
+    pub fn name(&self) -> Option<String> {
+        self.port.as_ref().and_then(|port| port.name().clone())
     }
 
-    pub fn set_port(&mut self, path: Option<&str>) -> Result<()> {
+    pub fn initialize<R>(
+        &mut self,
+        app: tauri::AppHandle<R>,
+        collection: tauri::State<'_, StoreCollection<R>>,
+    ) -> Result<()>
+    where
+        R: tauri::Runtime,
+    {
+        let port_name = with_store(app, collection, "config.json", |store| {
+            Ok(store.get("port").cloned())
+        })?;
+
+        if let Some(port_name) = port_name {
+            self.set_port(port_name.as_str())?;
+        }
+
+        Ok(())
+    }
+
+    fn set_port(&mut self, path: Option<&str>) -> Result<()> {
         println!("{:?}", path);
 
         // Drop the previous port implicitly before setting a new one
         self.port = None;
-        self.port_name = None;
-        self.status = "Disconnected".into();
 
         if let Some(path) = path {
-            self.port = Some(PelcoDPort::new(
+            self.port = Some(
                 serialport::new(path, 9000)
                     .stop_bits(StopBits::One)
                     .data_bits(DataBits::Eight)
                     .flow_control(FlowControl::None)
                     .parity(Parity::None)
                     .open()?,
-            ));
-            self.port_name = Some(path.into());
-            self.status = "Connected".into();
+            );
         }
 
         Ok(())
     }
 
-    pub fn set_status<T>(&mut self, status: T)
+    pub fn set<R>(
+        &mut self,
+        app: tauri::AppHandle<R>,
+        collection: tauri::State<'_, StoreCollection<R>>,
+        path: Option<&str>,
+    ) -> Result<()>
     where
-        T: Into<String>,
+        R: tauri::Runtime,
     {
-        self.status = status.into();
-    }
-}
+        self.set_port(path)?;
 
-impl Default for PortState {
-    fn default() -> Self {
-        Self {
-            port: None,
-            port_name: None,
-            status: "Disconnected".into(),
+        with_store(app.app_handle(), collection, "config.json", |store| {
+            store.insert("port".into(), path.into())?;
+            store.save()
+        })?;
+
+        self.emit_all(&app)?;
+
+        Ok(())
+    }
+
+    pub fn send_message(&mut self, message: Message) -> Result<()> {
+        if let Some(port) = self.port.as_mut() {
+            Ok(port.write_all(message.as_ref())?)
+        } else {
+            Err(Error::NoPortSet)
         }
     }
+
+    pub fn emit_all<R>(&self, handle: &tauri::AppHandle<R>) -> Result<()>
+    where
+        R: tauri::Runtime,
+    {
+        handle.emit_all("port-state", PortStateEvent::new(self))?;
+        Ok(())
+    }
+
+    pub fn emit(&self, window: &tauri::Window) -> Result<()> {
+        window.emit("port-state", PortStateEvent::new(self))?;
+        Ok(())
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
-pub struct PortStateEvent {
+#[derive(Debug, Clone, Serialize)]
+struct PortStateEvent {
     port: Option<String>,
-    status: String,
 }
 
-impl From<&PortState> for PortStateEvent {
-    fn from(value: &PortState) -> Self {
-        Self {
-            port: value.port_name.clone(),
-            status: value.status.clone(),
-        }
+impl PortStateEvent {
+    pub fn new(port: &Port) -> Self {
+        Self { port: port.name() }
     }
 }
 
-pub trait MutexPortState {
-    fn with_state<F>(&self, handle: &tauri::AppHandle, func: F)
-    where
-        F: FnOnce(&mut PortState) -> Result<()>;
-    fn with_state_and_status<F>(&self, handle: &tauri::AppHandle, func: F)
-    where
-        F: FnOnce(&mut PortState) -> Result<String>;
+#[derive(Default)]
+pub struct PortState {
+    port: Mutex<Port>,
 }
 
-impl MutexPortState for Mutex<PortState> {
-    fn with_state<F>(&self, handle: &tauri::AppHandle, func: F)
-    where
-        F: FnOnce(&mut PortState) -> Result<()>,
-    {
-        let mut state = self.lock().unwrap();
+pub fn with_port<T, F>(port_state: tauri::State<PortState>, func: F) -> Result<T>
+where
+    F: FnOnce(&mut Port) -> Result<T>,
+{
+    let mut port = port_state.port.lock().expect("mutext poisoned");
 
-        if let Err(error) = func(state.deref_mut()) {
-            state.set_status(error.to_string());
-        };
-
-        PortStateEvent::from(state.deref()).emit_all(handle).ok();
-    }
-
-    fn with_state_and_status<F>(&self, handle: &tauri::AppHandle, func: F)
-    where
-        F: FnOnce(&mut PortState) -> Result<String>,
-    {
-        let mut state = self.lock().unwrap();
-
-        let status: String = match func(state.deref_mut()) {
-            Ok(status) => status,
-            Err(error) => error.to_string(),
-        };
-
-        state.set_status(status);
-
-        PortStateEvent::from(state.deref()).emit_all(handle).ok();
-    }
+    func(port.deref_mut())
 }

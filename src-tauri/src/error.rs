@@ -1,45 +1,33 @@
-use serde::Serialize;
 use thiserror::Error as ThisError;
 
-#[derive(ThisError, Debug, Serialize, specta::Type)]
+#[derive(ThisError, Debug)]
 pub enum Error {
     #[error("no port set")]
     NoPortSet,
 
     #[error(transparent)]
-    Io(
-        #[from]
-        #[serde(skip)]
-        std::io::Error,
-    ),
+    Tauri(#[from] tauri::Error),
 
     #[error(transparent)]
-    SerialPort(
-        #[from]
-        #[serde(skip)]
-        serialport::Error,
-    ),
+    Store(#[from] tauri_plugin_store::Error),
 
     #[error(transparent)]
-    Tauri(
-        #[from]
-        #[serde(skip)]
-        tauri::Error,
-    ),
+    Io(#[from] std::io::Error),
 
     #[error(transparent)]
-    Store(
-        #[from]
-        #[serde(skip)]
-        tauri_plugin_store::Error,
-    ),
+    SerialPort(#[from] serialport::Error),
 
     #[error(transparent)]
-    PelcoD(
-        #[from]
-        #[serde(skip)]
-        pelcodrs::Error,
-    ),
+    PelcoD(#[from] pelcodrs::Error),
+}
+
+impl serde::Serialize for Error {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.to_string().as_ref())
+    }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
