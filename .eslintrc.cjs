@@ -15,6 +15,9 @@ module.exports = {
   rules: {
     '@typescript-eslint/restrict-template-expressions': 'off',
     '@typescript-eslint/no-confusing-void-expression': 'off',
+    '@typescript-eslint/consistent-type-imports': 'error',
+    '@typescript-eslint/consistent-type-exports': 'error',
+    '@typescript-eslint/no-import-type-side-effects': 'error',
   },
   overrides: [
     {
