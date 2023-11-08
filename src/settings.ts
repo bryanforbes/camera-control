@@ -1,14 +1,18 @@
 import { ask } from '@tauri-apps/api/dialog';
 import { WebviewWindow } from '@tauri-apps/api/window';
-import { asyncListener, invoke, listen, toggleControls, type PortState } from './common';
+import {
+  createAddAsyncEventListener,
+  invoke,
+  listen,
+  toggleControls,
+  type PortState,
+} from './common';
 
 async function setStatus(status: string): Promise<void> {
   return WebviewWindow.getByLabel('main')?.emit('status', status);
 }
 
-async function setErrorStatus(error: unknown): Promise<void> {
-  return setStatus(`Error: ${error}`);
-}
+const addAsyncEventListener = createAddAsyncEventListener((error) => setStatus(`Error: ${error}`));
 
 function setupDirectionButton(button: HTMLButtonElement): void {
   const direction = button.dataset['direction'];
@@ -25,36 +29,27 @@ function setupDirectionButton(button: HTMLButtonElement): void {
   const stopStatus = `Done ${isZoom ? 'zooming' : 'moving'}`;
   const stopStatusSetter = () => setStatus(stopStatus);
 
-  button.addEventListener(
-    'pointerdown',
-    asyncListener(async (event) => {
-      try {
-        await invoke(command, { direction }, statusSetter);
-      } catch (e) {
-        await setErrorStatus(e);
-        return;
-      }
+  addAsyncEventListener(button, 'pointerdown', async (event) => {
+    await invoke(command, { direction }, statusSetter);
 
-      const controller = new AbortController();
+    const controller = new AbortController();
 
-      button.addEventListener(
-        'pointerup',
-        asyncListener(async (event) => {
-          try {
-            await invoke(stopCommand, undefined, stopStatusSetter);
-          } catch (e) {
-            await setErrorStatus(e);
-          } finally {
-            controller.abort();
-            button.releasePointerCapture(event.pointerId);
-          }
-        }),
-        { signal: controller.signal },
-      );
+    addAsyncEventListener(
+      button,
+      'pointerup',
+      async (event) => {
+        try {
+          await invoke(stopCommand, undefined, stopStatusSetter);
+        } finally {
+          controller.abort();
+          button.releasePointerCapture(event.pointerId);
+        }
+      },
+      { signal: controller.signal },
+    );
 
-      button.setPointerCapture(event.pointerId);
-    }),
-  );
+    button.setPointerCapture(event.pointerId);
+  });
 }
 
 async function populatePorts(portSelect: HTMLSelectElement): Promise<void> {
@@ -93,11 +88,7 @@ async function confirmSetPreset(event: MouseEvent): Promise<void> {
   const confirmed = await ask(`Are you sure you want to set ${presetName}?`, { type: 'warning' });
 
   if (confirmed) {
-    try {
-      await invoke('set_preset', { preset }, () => setStatus(`Set ${presetName}`));
-    } catch (e) {
-      await setErrorStatus(e);
-    }
+    await invoke('set_preset', { preset }, () => setStatus(`Set ${presetName}`));
   }
 }
 
@@ -121,50 +112,32 @@ function onStateChange({ port }: PortState) {
   }
 }
 
-window.addEventListener(
-  'DOMContentLoaded',
-  asyncListener(async (): Promise<void> => {
-    const port = document.querySelector<HTMLSelectElement>('#ports');
+addAsyncEventListener(window, 'DOMContentLoaded', async (): Promise<void> => {
+  const port = document.querySelector<HTMLSelectElement>('#ports');
 
-    if (!port) {
-      return;
-    }
+  if (!port) {
+    return;
+  }
 
-    try {
-      await populatePorts(port);
-    } catch (e) {
-      await setErrorStatus(e);
-      return;
-    }
+  await populatePorts(port);
 
-    port.addEventListener(
-      'change',
-      asyncListener(async (event) => {
-        const target = event.target as HTMLSelectElement;
-        const value = target.options[target.selectedIndex]?.value ?? null;
+  addAsyncEventListener(port, 'change', async (event) => {
+    const target = event.target as HTMLSelectElement;
+    const value = target.options[target.selectedIndex]?.value ?? null;
 
-        console.log(value);
-        try {
-          await invoke('set_port', { portName: value === '' ? null : value });
-        } catch (e) {
-          await setErrorStatus(e);
-        }
-      }),
-    );
+    console.log(value);
+    await invoke('set_port', { portName: value === '' ? null : value });
+  });
 
-    for (const button of document.querySelectorAll<HTMLButtonElement>(
-      '.controls [data-direction]',
-    )) {
-      setupDirectionButton(button);
-    }
+  for (const button of document.querySelectorAll<HTMLButtonElement>('.controls [data-direction]')) {
+    setupDirectionButton(button);
+  }
 
-    document.querySelector('.presets')?.addEventListener(
-      'click',
-      asyncListener((event) => confirmSetPreset(event as MouseEvent)),
-    );
+  addAsyncEventListener(document.querySelector<HTMLElement>('.presets'), 'click', (event) =>
+    confirmSetPreset(event),
+  );
 
-    await listen<PortState>('port-state', onStateChange);
+  await listen<PortState>('port-state', onStateChange);
 
-    await invoke('ready');
-  }),
-);
+  await invoke('ready');
+});

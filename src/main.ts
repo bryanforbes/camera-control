@@ -1,4 +1,10 @@
-import { asyncListener, invoke, listen, toggleControls, type PortState } from './common';
+import {
+  createAddAsyncEventListener,
+  invoke,
+  listen,
+  toggleControls,
+  type PortState,
+} from './common';
 
 function setStatus(status: string) {
   const statusNode = document.querySelector<HTMLParagraphElement>('.status');
@@ -9,6 +15,8 @@ function setStatus(status: string) {
 
   statusNode.innerText = status;
 }
+
+const addAsyncEventListener = createAddAsyncEventListener((error) => setStatus(`Error: ${error}`));
 
 async function goToPreset(event: MouseEvent): Promise<void> {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-preset]');
@@ -24,11 +32,7 @@ async function goToPreset(event: MouseEvent): Promise<void> {
     return;
   }
 
-  try {
-    await invoke('go_to_preset', { preset }, () => setStatus(presetName));
-  } catch (e) {
-    setStatus(`Error: ${e}`);
-  }
+  await invoke('go_to_preset', { preset }, () => setStatus(presetName));
 }
 
 function onStateChange({ port }: PortState) {
@@ -38,22 +42,17 @@ function onStateChange({ port }: PortState) {
   setStatus(port ? 'Connected' : 'Disconnected');
 }
 
-window.addEventListener(
-  'DOMContentLoaded',
-  asyncListener(async (): Promise<void> => {
-    document.querySelector('.settings')?.addEventListener(
-      'click',
-      asyncListener(() => invoke('open_settings')),
-    );
+addAsyncEventListener(window, 'DOMContentLoaded', async (): Promise<void> => {
+  addAsyncEventListener(document.querySelector<HTMLButtonElement>('.settings'), 'click', () =>
+    invoke('open_settings'),
+  );
 
-    document.querySelector('.presets')?.addEventListener(
-      'click',
-      asyncListener((event) => goToPreset(event as MouseEvent)),
-    );
+  addAsyncEventListener(document.querySelector<HTMLElement>('.presets'), 'click', (event) =>
+    goToPreset(event),
+  );
 
-    await listen<PortState>('port-state', onStateChange);
-    await listen('status', setStatus);
+  await listen<PortState>('port-state', onStateChange);
+  await listen('status', setStatus);
 
-    await invoke('ready');
-  }),
-);
+  await invoke('ready');
+});
