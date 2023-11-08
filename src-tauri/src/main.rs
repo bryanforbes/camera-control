@@ -16,12 +16,12 @@ use tauri::{AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, Win
 use tauri_plugin_store::StoreCollection;
 use tauri_plugin_window_state::StateFlags;
 
-fn open_settings_window(app_handle: tauri::AppHandle) -> Result<()> {
+fn open_settings_window(app_handle: &tauri::AppHandle) -> Result<()> {
     if let Some(window) = app_handle.get_window("settings") {
         window.set_focus()?;
     } else {
         tauri::WindowBuilder::new(
-            &app_handle,
+            app_handle,
             "settings",
             tauri::WindowUrl::App("settings.html".into()),
         )
@@ -36,7 +36,7 @@ fn open_settings_window(app_handle: tauri::AppHandle) -> Result<()> {
 
 #[tauri::command]
 async fn open_settings(app_handle: tauri::AppHandle) -> Result<()> {
-    open_settings_window(app_handle)
+    open_settings_window(&app_handle)
 }
 
 #[tauri::command]
@@ -50,15 +50,15 @@ fn ready(
 
 #[tauri::command]
 fn set_port(
-    port_name: Option<String>,
+    port_name: Option<&str>,
     handle: tauri::AppHandle,
     port_state: tauri::State<PortState>,
     stores: tauri::State<StoreCollection<Wry>>,
 ) -> Result<()> {
-    debug!("Port name: {:?}", port_name);
+    debug!("Port name: {port_name:?}");
 
     with_port(port_state, |port| {
-        port.set(handle.app_handle(), stores, port_name.as_deref())
+        port.set(handle.app_handle(), stores, port_name)
     })
 }
 
@@ -230,7 +230,7 @@ fn main() {
             )
             .on_menu_event(|event| match event.menu_item_id() {
                 "settings" => {
-                    open_settings_window(event.window().app_handle()).unwrap_or_default();
+                    open_settings_window(&event.window().app_handle()).unwrap_or_default();
                 }
                 "check-for-updates" => {
                     event.window().trigger("tauri://update", None);
@@ -277,5 +277,5 @@ fn main() {
             Ok(())
         })
         .run(context)
-        .expect("error while running tauri application")
+        .expect("error while running tauri application");
 }

@@ -1,7 +1,7 @@
 use pelcodrs::Message;
 use serde::Serialize;
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
-use std::{ops::DerefMut, sync::Mutex};
+use std::sync::Mutex;
 use tauri::Manager;
 use tauri_plugin_store::{with_store, StoreCollection};
 
@@ -37,7 +37,7 @@ impl Port {
     }
 
     fn set_port(&mut self, path: Option<&str>) -> Result<()> {
-        println!("{:?}", path);
+        println!("{path:?}");
 
         // Drop the previous port implicitly before setting a new one
         self.port = None;
@@ -124,5 +124,5 @@ where
 {
     let mut port = port_state.port.lock().expect("mutext poisoned");
 
-    func(port.deref_mut())
+    func(&mut port)
 }
