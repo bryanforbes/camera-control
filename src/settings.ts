@@ -25,12 +25,11 @@ function setupDirectionButton(button: HTMLButtonElement): void {
   const command = isZoom ? 'zoom' : 'move_camera';
   const stopCommand = isZoom ? 'stop_zoom' : 'stop_move';
   const status = `${isZoom ? 'Zooming' : 'Moving'} ${direction}`;
-  const statusSetter = () => setStatus(status);
   const stopStatus = `Done ${isZoom ? 'zooming' : 'moving'}`;
-  const stopStatusSetter = () => setStatus(stopStatus);
 
   addAsyncEventListener(button, 'pointerdown', async (event) => {
-    await invoke(command, { direction }, statusSetter);
+    await invoke(command, { direction });
+    await setStatus(status);
 
     const controller = new AbortController();
 
@@ -39,7 +38,8 @@ function setupDirectionButton(button: HTMLButtonElement): void {
       'pointerup',
       async (event) => {
         try {
-          await invoke(stopCommand, undefined, stopStatusSetter);
+          await invoke(stopCommand);
+          await setStatus(stopStatus);
         } finally {
           controller.abort();
           button.releasePointerCapture(event.pointerId);
@@ -59,7 +59,7 @@ async function populatePorts(portSelect: HTMLSelectElement): Promise<void> {
 
   portSelect.appendChild(document.createElement('option'));
 
-  const ports = await invoke<string[]>('get_ports');
+  const ports = await invoke('get_ports');
 
   for (const port of ports) {
     const portOption = document.createElement('option');
@@ -88,7 +88,8 @@ async function confirmSetPreset(event: MouseEvent): Promise<void> {
   const confirmed = await ask(`Are you sure you want to set ${presetName}?`, { type: 'warning' });
 
   if (confirmed) {
-    await invoke('set_preset', { preset }, () => setStatus(`Set ${presetName}`));
+    await invoke('set_preset', { preset });
+    await setStatus(`Set ${presetName}`);
   }
 }
 
@@ -133,11 +134,9 @@ addAsyncEventListener(window, 'DOMContentLoaded', async (): Promise<void> => {
     setupDirectionButton(button);
   }
 
-  addAsyncEventListener(document.querySelector<HTMLElement>('.presets'), 'click', (event) =>
-    confirmSetPreset(event),
-  );
+  addAsyncEventListener(document.querySelector<HTMLElement>('.presets'), 'click', confirmSetPreset);
 
-  await listen<PortState>('port-state', onStateChange);
+  await listen('port-state', ({ payload }) => onStateChange(payload));
 
   await invoke('ready');
 });

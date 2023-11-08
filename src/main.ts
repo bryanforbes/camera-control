@@ -32,7 +32,8 @@ async function goToPreset(event: MouseEvent): Promise<void> {
     return;
   }
 
-  await invoke('go_to_preset', { preset }, () => setStatus(presetName));
+  await invoke('go_to_preset', { preset });
+  setStatus(presetName);
 }
 
 function onStateChange({ port }: PortState) {
@@ -47,12 +48,10 @@ addAsyncEventListener(window, 'DOMContentLoaded', async (): Promise<void> => {
     invoke('open_settings'),
   );
 
-  addAsyncEventListener(document.querySelector<HTMLElement>('.presets'), 'click', (event) =>
-    goToPreset(event),
-  );
+  addAsyncEventListener(document.querySelector<HTMLElement>('.presets'), 'click', goToPreset);
 
-  await listen<PortState>('port-state', onStateChange);
-  await listen('status', setStatus);
+  await listen('port-state', ({ payload }) => onStateChange(payload));
+  await listen('status', ({ payload }) => setStatus(payload));
 
   await invoke('ready');
 });
