@@ -93,8 +93,11 @@ impl Port {
         Ok(())
     }
 
-    pub fn emit(&self, window: &tauri::Window) -> Result<()> {
-        window.emit("port-state", PortStateEvent::new(self))?;
+    pub fn emit_to<R>(&self, handle: &tauri::AppHandle<R>, label: &str) -> Result<()>
+    where
+        R: tauri::Runtime,
+    {
+        handle.emit_to(label, "port-state", PortStateEvent::new(self))?;
         Ok(())
     }
 }

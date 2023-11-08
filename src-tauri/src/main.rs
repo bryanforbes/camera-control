@@ -40,8 +40,12 @@ async fn open_settings(app_handle: tauri::AppHandle) -> Result<()> {
 }
 
 #[tauri::command]
-fn ready(window: tauri::Window, port_state: tauri::State<PortState>) -> Result<()> {
-    with_port(port_state, |port| port.emit(&window))
+fn ready(
+    app_handle: tauri::AppHandle,
+    window: tauri::Window,
+    port_state: tauri::State<PortState>,
+) -> Result<()> {
+    with_port(port_state, |port| port.emit_to(&app_handle, window.label()))
 }
 
 #[tauri::command]
