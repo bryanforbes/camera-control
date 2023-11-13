@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 import checker from 'vite-plugin-checker';
 
 // https://vitejs.dev/config/
-export default defineConfig(() => ({
+export default defineConfig({
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   // prevent vite from obscuring rust errors
   clearScreen: false,
@@ -41,4 +41,4 @@ export default defineConfig(() => ({
       },
     }),
   ],
-}));
+});
