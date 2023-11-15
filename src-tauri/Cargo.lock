@@ -323,9 +323,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.84"
+version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f8e7c90afad890484a21653d08b6e209ae34770fb5ee298f9c699fcc1e5c856"
+checksum = "f1174fb0b6ec23863f8b971027804a42614e347eafb0a95bf0b12cdae21fc4d0"
 dependencies = [
  "libc",
 ]
@@ -3346,7 +3346,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-store"
 version = "0.0.0"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#b13d97c7c7d1dcb1c8e43bec9732f23eefe7b798"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#cb1586b4d1ceda3b9144898f6248b487839fad7a"
 dependencies = [
  "log",
  "serde",
@@ -3358,7 +3358,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-window-state"
 version = "0.1.0"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#b13d97c7c7d1dcb1c8e43bec9732f23eefe7b798"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#cb1586b4d1ceda3b9144898f6248b487839fad7a"
 dependencies = [
  "bincode",
  "bitflags 2.0.2",
