@@ -34,6 +34,8 @@ fn open_settings_window(app_handle: &tauri::AppHandle) -> Result<()> {
     Ok(())
 }
 
+// This command MUST be async as per Tauri's documentation at
+// https://tauri.app/v1/guides/features/multiwindow#create-a-window-using-an-apphandle-instance
 #[tauri::command]
 async fn open_settings(app_handle: tauri::AppHandle) -> Result<()> {
     open_settings_window(&app_handle)
