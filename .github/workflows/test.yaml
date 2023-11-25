@@ -53,6 +53,7 @@ jobs:
         name: Set up Rust cache
         with:
           workspaces: src-tauri
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
