@@ -642,9 +642,9 @@ dependencies = [
 
 [[package]]
 name = "deranged"
-version = "0.3.9"
+version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f32d04922c60427da6f9fef14d042d9edddef64cb9d4ce0d64d0685fbeb1fd3"
+checksum = "8eb30d70a07a3b04884d2677f06bec33509dc67ca60d92949e5535352d3191dc"
 dependencies = [
  "powerfmt",
  "serde",
@@ -3395,7 +3395,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-store"
 version = "0.0.0"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#b01da63d55822c528053e759da29284f82411ae0"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#ad5ec05e2639b33f0475a0eefa8684bfa4b92be8"
 dependencies = [
  "log",
  "serde",
@@ -3407,7 +3407,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-window-state"
 version = "0.1.0"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#b01da63d55822c528053e759da29284f82411ae0"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#ad5ec05e2639b33f0475a0eefa8684bfa4b92be8"
 dependencies = [
  "bincode",
  "bitflags 2.0.2",
