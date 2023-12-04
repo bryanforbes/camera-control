@@ -25,13 +25,16 @@ impl Port {
     where
         R: tauri::Runtime,
     {
-        let port_name = with_store(app, collection, "config.json", |store| {
-            Ok(store.get("port").cloned())
-        })?;
+        with_store(app.app_handle(), collection, "config.json", |store| {
+            if let Some(port_name) = store.get("port").cloned() {
+                if self.set_port(port_name.as_str()).is_err() {
+                    store.insert("port".into(), serde_json::Value::Null)?;
+                    store.save()?;
+                }
+            }
 
-        if let Some(port_name) = port_name {
-            self.set_port(port_name.as_str())?;
-        }
+            Ok(())
+        })?;
 
         Ok(())
     }
