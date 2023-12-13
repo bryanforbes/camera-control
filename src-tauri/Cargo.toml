@@ -16,7 +16,7 @@ tauri-build = { version = "=1.5.0", features = ["isolation"] }
 tauri = { version = "=1.5.3", features = ["dialog-ask", "dialog-message", "isolation", "updater", "window-create", "window-set-focus", "window-show"] }
 serde = { version = "=1.0.193", features = ["derive"] }
 serde_json = "=1.0.108"
-serialport = "=4.2.2"
+serialport = "=4.3.0"
 tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 tauri-plugin-store = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 thiserror = "=1.0.50"
