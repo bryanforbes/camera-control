@@ -8,7 +8,7 @@
     "build": "tsc -p src/tsconfig.json && vite build -c vite.config.ts src",
     "preview": "vite preview -c vite.config.ts src",
     "tauri": "tauri",
-    "prepare": "husky install"
+    "prepare": "husky"
   },
   "dependencies": {
     "@tauri-apps/api": "1.5.3",
