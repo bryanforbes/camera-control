@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-20.04, windows-latest]
+        platform: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - platform: macos-latest
             rust-targets: 'aarch64-apple-darwin, x86_64-apple-darwin'
