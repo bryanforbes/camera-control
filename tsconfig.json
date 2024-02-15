@@ -2,11 +2,20 @@
   "$schema": "https://json.schemastore.org/tsconfig.json",
   "extends": ["./tsconfig.base.json"],
   "compilerOptions": {
-    "moduleResolution": "node",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "allowJs": true,
     "checkJs": true,
     "types": ["node"]
   },
-  "include": ["**/*"],
-  "exclude": ["**/node_modules", "**/.*/", "src*/**/*", "dist*/**/*"],
-  "files": [".eslintrc.cjs", ".lintstagedrc.js"]
+  "include": ["**/*", "**/.*"],
+  "exclude": [
+    "**/node_modules",
+    ".*/**/*",
+    ".*/**/.*",
+    "src*/**/*",
+    "src*/**/.*",
+    "dist*/**/*",
+    "dist*/**/.*"
+  ]
 }
