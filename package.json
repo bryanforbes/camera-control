@@ -20,7 +20,7 @@
     "@types/eslint": "8.56.5",
     "@types/eslint__js": "8.42.3",
     "@types/node": "20.11.24",
-    "autoprefixer": "10.4.17",
+    "autoprefixer": "10.4.18",
     "eslint": "8.57.0",
     "globals": "14.0.0",
     "husky": "9.0.11",
