@@ -7,7 +7,9 @@
     ":assignee(bryanforbes)",
     ":timezone(America/Chicago)",
     ":combinePatchMinorReleases",
-    "helpers:disableTypesNodeMajor"
+    "helpers:disableTypesNodeMajor",
+    "group:vite",
+    "group:tauriMonorepo"
   ],
   "rangeStrategy": "pin",
   "packageRules": [
@@ -28,6 +30,12 @@
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "Rust dev and build dependencies (non-major)",
       "groupSlug": "rust-dev-build-dependencies"
+    },
+    {
+      "groupName": "linters",
+      "extends": ["packages:linters"],
+      "matchPackagePrefixes": ["@types/eslint-", "prettier-plugin"],
+      "matchPackageNames": ["typescript-eslint", "globals"]
     }
   ],
   "lockFileMaintenance": {
