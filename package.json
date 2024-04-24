@@ -18,10 +18,12 @@
   "devDependencies": {
     "@tauri-apps/cli": "1.5.11",
     "@types/eslint": "8.56.10",
+    "@types/eslint-config-prettier": "6.11.3",
     "@types/eslint__js": "8.42.3",
     "@types/node": "20.12.7",
     "autoprefixer": "10.4.19",
     "eslint": "9.1.1",
+    "eslint-config-prettier": "9.1.0",
     "globals": "15.0.0",
     "husky": "9.0.11",
     "lint-staged": "15.2.2",
@@ -35,6 +37,17 @@
     "typescript-eslint": "7.7.1",
     "vite": "5.2.10",
     "vite-plugin-checker": "0.6.4"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "typescript-eslint>eslint": "9",
+        "@typescript-eslint/eslint-plugin>eslint": "9",
+        "@typescript-eslint/type-utils>eslint": "9",
+        "@typescript-eslint/utils>eslint": "9",
+        "@typescript-eslint/parser>eslint": "9"
+      }
+    }
   },
   "packageManager": "pnpm@9.0.5+sha512.a722575c18fd791f9ef71e387c6e16cc03c90d859b9b0998d0428ca0e3220828b32a96e6de73cea34edbc0f50824771b1a69c7ea36b86daa3b89c7e6d9a3d912"
 }

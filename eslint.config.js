@@ -1,14 +1,16 @@
-import eslint from '@eslint/js';
+import js from '@eslint/js';
+import prettier from 'eslint-config-prettier';
 import globals from 'globals';
-import tseslint from 'typescript-eslint';
+import ts from 'typescript-eslint';
 
-export default tseslint.config(
+export default ts.config(
   {
     ignores: ['src/commands.ts', 'src-tauri/**', 'dist*/**'],
   },
-  eslint.configs.recommended,
-  ...tseslint.configs.strictTypeChecked,
-  ...tseslint.configs.stylisticTypeChecked,
+  js.configs.recommended,
+  ...ts.configs.strictTypeChecked,
+  ...ts.configs.stylisticTypeChecked,
+  prettier,
   {
     languageOptions: {
       ecmaVersion: 2022,
@@ -26,12 +28,7 @@ export default tseslint.config(
     },
   },
   {
-    files: [
-      '.lintstagedrc.js',
-      'eslint.config.js',
-      'postcss.config.js',
-      'vite.config.ts',
-    ],
+    files: ['*.ts', '.*.ts', '*.js', '.*.js'],
     languageOptions: {
       globals: globals.node,
     },
