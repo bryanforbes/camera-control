@@ -16,7 +16,7 @@
     "tauri-plugin-window-state-api": "github:tauri-apps/tauri-plugin-window-state#v1"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "1.5.11",
+    "@tauri-apps/cli": "1.5.12",
     "@types/eslint": "8.56.10",
     "@types/eslint-config-prettier": "6.11.3",
     "@types/eslint__js": "8.42.3",
