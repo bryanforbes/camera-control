@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@tauri-apps/api':
-        specifier: 1.5.5
-        version: 1.5.5
+        specifier: 1.5.6
+        version: 1.5.6
       tauri-plugin-store-api:
         specifier: github:tauri-apps/tauri-plugin-store#v1
         version: https://codeload.github.com/tauri-apps/tauri-plugin-store/tar.gz/b1ce9b38662a2990dddb30de1af88509a45e4625
@@ -401,8 +401,8 @@ packages:
     resolution: {integrity: sha512-zxnDjHHKjOsrIzZm6nO5Xapb/BxqUq1tc7cGkFXsFkGTsSWgCPH1D8mm0XS9weJY2OaR73I3k3S+b7eSzJDfqA==}
     engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
 
-  '@tauri-apps/api@1.5.5':
-    resolution: {integrity: sha512-Jgwj8BK/9YXZNzcqVDk1Al7+u5V9sWrZ8MhV41A1AKgJaicHuqlkc/qdx06sNDXvc+qprTPpBAaqnt891qOUIQ==}
+  '@tauri-apps/api@1.5.6':
+    resolution: {integrity: sha512-LH5ToovAHnDVe5Qa9f/+jW28I6DeMhos8bNDtBOmmnaDpPmJmYLyHdeDblAWWWYc7KKRDg9/66vMuKyq0WIeFA==}
     engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
 
   '@tauri-apps/cli-darwin-arm64@1.5.14':
@@ -1783,7 +1783,7 @@ snapshots:
 
   '@tauri-apps/api@1.5.3': {}
 
-  '@tauri-apps/api@1.5.5': {}
+  '@tauri-apps/api@1.5.6': {}
 
   '@tauri-apps/cli-darwin-arm64@1.5.14':
     optional: true
