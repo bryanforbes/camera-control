@@ -49,11 +49,11 @@ importers:
         specifier: 9.0.11
         version: 9.0.11
       lint-staged:
-        specifier: 15.2.4
-        version: 15.2.4
+        specifier: 15.2.5
+        version: 15.2.5
       postcss-nesting:
-        specifier: 12.1.4
-        version: 12.1.4(postcss@8.4.38)
+        specifier: 12.1.5
+        version: 12.1.5(postcss@8.4.38)
       prettier:
         specifier: 3.2.5
         version: 3.2.5
@@ -1049,8 +1049,8 @@ packages:
   lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
 
-  lint-staged@15.2.4:
-    resolution: {integrity: sha512-3F9KRQIS2fVDGtCkBp4Bx0jswjX7zUcKx6OF0ZeY1prksUyKPRIIUqZhIUYAstJfvj6i48VFs4dwVIbCYwvTYQ==}
+  lint-staged@15.2.5:
+    resolution: {integrity: sha512-j+DfX7W9YUvdzEZl3Rk47FhDF6xwDBV5wwsCPw6BwWZVPYJemusQmvb9bRsW23Sqsaa+vRloAWogbK4BUuU2zA==}
     engines: {node: '>=18.12.0'}
     hasBin: true
 
@@ -1095,6 +1095,10 @@ packages:
 
   micromatch@4.0.6:
     resolution: {integrity: sha512-Y4Ypn3oujJYxJcMacVgcs92wofTHxp9FzfDpQON4msDefoC0lb3ETvQLOdLcbhSwU1bz8HrL/1sygfBIHudrkQ==}
+    engines: {node: '>=8.6'}
+
+  micromatch@4.0.7:
+    resolution: {integrity: sha512-LPP/3KorzCwBxfeUuZmaR6bG2kdeHSbe0P2tY3FLRU4vYrjYz5hI4QZwV0njUx3jeuKe67YukQ1LSPZBKDqO/Q==}
     engines: {node: '>=8.6'}
 
   mimic-fn@2.1.0:
@@ -1202,8 +1206,8 @@ packages:
     engines: {node: '>=0.10'}
     hasBin: true
 
-  postcss-nesting@12.1.4:
-    resolution: {integrity: sha512-CcHOq94K137E+U4Ommu7pexcpp0Tjm24zl4UcqWs1oSLAr5cLI+jLrqQ5h/bdjhMX6cMbzunyustVNnvrzF8Zg==}
+  postcss-nesting@12.1.5:
+    resolution: {integrity: sha512-N1NgI1PDCiAGWPTYrwqm8wpjv0bgDmkYHH72pNsqTCv9CObxjxftdYu6AKtGN+pnJa7FQjMm3v4sp8QJbFsYdQ==}
     engines: {node: ^14 || ^16 || >=18}
     peerDependencies:
       postcss: ^8.4
@@ -1219,6 +1223,10 @@ packages:
 
   postcss-selector-parser@6.0.16:
     resolution: {integrity: sha512-A0RVJrX+IUkVZbW3ClroRWurercFhieevHB38sr2+l9eUClMqome3LmEmnhlNy+5Mr2EYN6B2Kaw9wYdd+VHiw==}
+    engines: {node: '>=4'}
+
+  postcss-selector-parser@6.1.0:
+    resolution: {integrity: sha512-UMz42UD0UY0EApS0ZL9o1XnLhSTtvvvLe5Dc2H2O56fvRZi+KulDyf5ctDhhtYJBGKStV2FL1fy6253cmLgqVQ==}
     engines: {node: '>=4'}
 
   postcss-sorting@8.0.2:
@@ -1612,13 +1620,17 @@ snapshots:
       '@csstools/css-parser-algorithms': 2.6.3(@csstools/css-tokenizer@2.3.1)
       '@csstools/css-tokenizer': 2.3.1
 
-  '@csstools/selector-resolve-nested@1.1.0(postcss-selector-parser@6.0.16)':
+  '@csstools/selector-resolve-nested@1.1.0(postcss-selector-parser@6.1.0)':
     dependencies:
-      postcss-selector-parser: 6.0.16
+      postcss-selector-parser: 6.1.0
 
   '@csstools/selector-specificity@3.1.1(postcss-selector-parser@6.0.16)':
     dependencies:
       postcss-selector-parser: 6.0.16
+
+  '@csstools/selector-specificity@3.1.1(postcss-selector-parser@6.1.0)':
+    dependencies:
+      postcss-selector-parser: 6.1.0
 
   '@dual-bundle/import-meta-resolve@4.1.0': {}
 
@@ -2256,7 +2268,7 @@ snapshots:
       '@nodelib/fs.walk': 1.2.8
       glob-parent: 5.1.2
       merge2: 1.4.1
-      micromatch: 4.0.5
+      micromatch: 4.0.6
 
   fast-json-stable-stringify@2.1.0: {}
 
@@ -2434,7 +2446,7 @@ snapshots:
 
   lines-and-columns@1.2.4: {}
 
-  lint-staged@15.2.4:
+  lint-staged@15.2.5:
     dependencies:
       chalk: 5.3.0
       commander: 12.1.0
@@ -2442,7 +2454,7 @@ snapshots:
       execa: 8.0.1
       lilconfig: 3.1.1
       listr2: 8.2.1
-      micromatch: 4.0.6
+      micromatch: 4.0.7
       pidtree: 0.6.0
       string-argv: 0.3.2
       yaml: 2.4.2
@@ -2493,6 +2505,11 @@ snapshots:
     dependencies:
       braces: 3.0.3
       picomatch: 4.0.2
+
+  micromatch@4.0.7:
+    dependencies:
+      braces: 3.0.3
+      picomatch: 2.3.1
 
   mimic-fn@2.1.0: {}
 
@@ -2578,12 +2595,12 @@ snapshots:
 
   pidtree@0.6.0: {}
 
-  postcss-nesting@12.1.4(postcss@8.4.38):
+  postcss-nesting@12.1.5(postcss@8.4.38):
     dependencies:
-      '@csstools/selector-resolve-nested': 1.1.0(postcss-selector-parser@6.0.16)
-      '@csstools/selector-specificity': 3.1.1(postcss-selector-parser@6.0.16)
+      '@csstools/selector-resolve-nested': 1.1.0(postcss-selector-parser@6.1.0)
+      '@csstools/selector-specificity': 3.1.1(postcss-selector-parser@6.1.0)
       postcss: 8.4.38
-      postcss-selector-parser: 6.0.16
+      postcss-selector-parser: 6.1.0
 
   postcss-resolve-nested-selector@0.1.1: {}
 
@@ -2592,6 +2609,11 @@ snapshots:
       postcss: 8.4.38
 
   postcss-selector-parser@6.0.16:
+    dependencies:
+      cssesc: 3.0.0
+      util-deprecate: 1.0.2
+
+  postcss-selector-parser@6.1.0:
     dependencies:
       cssesc: 3.0.0
       util-deprecate: 1.0.2
