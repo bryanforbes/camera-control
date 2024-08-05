@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "1.6.0",
-    "@types/eslint": "8.56.10",
+    "@types/eslint": "9.6.0",
     "@types/eslint-config-prettier": "6.11.3",
     "@types/eslint__js": "8.42.3",
     "@types/node": "20.14.10",
@@ -34,7 +34,7 @@
     "stylelint-config-standard": "36.0.1",
     "stylelint-order": "6.0.4",
     "typescript": "5.5.3",
-    "typescript-eslint": "7.16.0",
+    "typescript-eslint": "8.0.1",
     "vite": "5.3.3",
     "vite-plugin-checker": "0.7.1"
   },
