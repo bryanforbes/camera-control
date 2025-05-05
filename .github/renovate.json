@@ -34,8 +34,12 @@
     {
       "groupName": "linters",
       "extends": ["packages:linters"],
-      "matchPackagePrefixes": ["@types/eslint-", "prettier-plugin"],
-      "matchPackageNames": ["typescript-eslint", "globals"]
+      "matchPackageNames": [
+        "typescript-eslint",
+        "globals",
+        "@types/eslint-{/,}**",
+        "prettier-plugin{/,}**"
+      ]
     }
   ],
   "lockFileMaintenance": {
