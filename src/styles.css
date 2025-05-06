@@ -44,7 +44,7 @@ main {
   background-color: #fff;
   border: 1px solid transparent;
   border-radius: 8px;
-  box-shadow: 0 2px 2px rgba(0 0 0 / 20%);
+  box-shadow: 0 2px 2px rgb(0 0 0 / 20%);
   color: #0f0f0f;
   cursor: pointer;
   font-family: inherit;
@@ -91,7 +91,7 @@ input[type='checkbox'].toggle {
     background: #fff;
     border-radius: 50%;
     bottom: 2px;
-    box-shadow: 0 2px 2px rgba(0 0 0 / 20%);
+    box-shadow: 0 2px 2px rgb(0 0 0 / 20%);
     content: '';
     font-size: 0.75rem;
     font-weight: 600;

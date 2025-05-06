@@ -1,5 +1,5 @@
-import { Store } from 'tauri-plugin-store-api';
 import type { UnlistenFn } from '@tauri-apps/api/event';
+import { Store } from 'tauri-plugin-store-api';
 
 const store = new Store('config.json');
 
