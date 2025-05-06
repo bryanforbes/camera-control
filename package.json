@@ -11,12 +11,12 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@tauri-apps/api": "1.6.0",
+    "@tauri-apps/api": "2.5.0",
     "tauri-plugin-store-api": "github:tauri-apps/tauri-plugin-store#v1",
     "tauri-plugin-window-state-api": "github:tauri-apps/tauri-plugin-window-state#v1"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "1.6.3",
+    "@tauri-apps/cli": "2.5.0",
     "@types/eslint": "9.6.1",
     "@types/eslint-config-prettier": "6.11.3",
     "@types/lint-staged": "13.3.0",
