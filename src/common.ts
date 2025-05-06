@@ -1,6 +1,6 @@
+import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import type { EventCallback, UnlistenFn } from '@tauri-apps/api/event';
 import { listen as tauriListen } from '@tauri-apps/api/event';
-import { invoke as tauriInvoke } from '@tauri-apps/api/tauri';
 
 export interface PortState {
   port: string | null;

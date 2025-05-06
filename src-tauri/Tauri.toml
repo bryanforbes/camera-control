@@ -1,0 +1,51 @@
+product-name = "Camera Control"
+main-binary-name = "Camera Control"
+version = "23.4.7-0"
+identifier = "net.reigndropsfall.camera-control"
+
+[build]
+before-dev-command = "pnpm dev"
+before-build-command = "pnpm build"
+frontend-dist = "../dist"
+dev-url = "http://localhost:1420"
+
+[bundle]
+active = true
+icon = [
+  "icons/32x32.png",
+  "icons/128x128.png",
+  "icons/128x128@2x.png",
+  "icons/icon.icns",
+  "icons/icon.ico"
+]
+targets = "all"
+createUpdaterArtifacts = "v1Compatible"
+
+[app]
+with-global-tauri = true
+
+[[app.windows]]
+fullscreen = false
+resizable = false
+title = "Camera Control"
+accept-first-mouse = true
+width = 350
+height = 450
+use-https-scheme = true
+
+[app.security]
+freeze-prototype = true
+
+[app.security.csp]
+default-src = "'self'"
+connect-src = "ipc: http://ipc.localhost"
+
+[app.security.pattern]
+use = "isolation"
+
+[app.security.pattern.options]
+dir = "../dist-isolation"
+
+[plugins.updater]
+pubkey = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkxOTUxRkM5QkY1QzQ2N0QKUldSOVJseS95UitWa1NvNXp6Z1N1VUF6YXVCZzUwTTdMV3NPTldIdEF6cno3d0x4MHczdGJwK0sK"
+endpoints = ["https://github.com/bryanforbes/camera-control/releases/latest/download/latest.json"]
