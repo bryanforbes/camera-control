@@ -47,7 +47,10 @@
         "@typescript-eslint/utils>eslint": "9",
         "@typescript-eslint/parser>eslint": "9"
       }
-    }
+    },
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   },
   "packageManager": "pnpm@10.10.0"
 }
