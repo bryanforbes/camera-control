@@ -1,14 +1,16 @@
 import type { UnlistenFn } from '@tauri-apps/api/event';
-import { Store } from 'tauri-plugin-store-api';
+import { Store } from '@tauri-apps/plugin-store';
 
-const store = new Store('config.json');
+const store = await Store.load('config.json');
 
-export async function onPortChange(callback: (port: string | null) => void): Promise<UnlistenFn> {
+export async function onPortChange(
+  callback: (port: string | null | undefined) => void,
+): Promise<UnlistenFn> {
   callback(await getPort());
   return store.onKeyChange('port', callback);
 }
 
-export async function getPort(): Promise<string | null> {
+export async function getPort(): Promise<string | null | undefined> {
   return store.get('port');
 }
 

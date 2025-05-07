@@ -1,5 +1,5 @@
-import { ask } from '@tauri-apps/api/dialog';
-import { WebviewWindow } from '@tauri-apps/api/window';
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { ask } from '@tauri-apps/plugin-dialog';
 import {
   createAddAsyncEventListener,
   invoke,
@@ -9,7 +9,7 @@ import {
 } from './common';
 
 async function setStatus(status: string): Promise<void> {
-  return WebviewWindow.getByLabel('main')?.emit('status', status);
+  return (await WebviewWindow.getByLabel('main'))?.emit('status', status);
 }
 
 const addAsyncEventListener = createAddAsyncEventListener((error) => setStatus(`Error: ${error}`));
@@ -85,7 +85,7 @@ async function confirmSetPreset(event: MouseEvent): Promise<void> {
     return;
   }
 
-  const confirmed = await ask(`Are you sure you want to set ${presetName}?`, { type: 'warning' });
+  const confirmed = await ask(`Are you sure you want to set ${presetName}?`, { kind: 'warning' });
 
   if (confirmed) {
     await invoke('set_preset', { preset });

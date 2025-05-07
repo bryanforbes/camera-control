@@ -12,18 +12,22 @@ use crate::error::Result;
 use log::debug;
 use pelcodrs::{AutoCtrl, Direction, Message, MessageBuilder, Speed};
 use port_state::{with_port, PortState};
-use tauri::{AboutMetadata, CustomMenuItem, Manager, Menu, MenuItem, Submenu, WindowEvent, Wry};
-use tauri_plugin_store::StoreCollection;
+use tauri::{
+    menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
+    Manager, WindowEvent,
+};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+use tauri_plugin_updater::UpdaterExt;
 use tauri_plugin_window_state::StateFlags;
 
 fn open_settings_window(app_handle: &tauri::AppHandle) -> Result<()> {
-    if let Some(window) = app_handle.get_window("settings") {
+    if let Some(window) = app_handle.get_webview_window("settings") {
         window.set_focus()?;
     } else {
-        tauri::WindowBuilder::new(
+        tauri::WebviewWindowBuilder::new(
             app_handle,
             "settings",
-            tauri::WindowUrl::App("settings.html".into()),
+            tauri::WebviewUrl::App("settings.html".into()),
         )
         .title("Camera Control Settings")
         .resizable(false)
@@ -55,13 +59,10 @@ fn set_port(
     port_name: Option<&str>,
     handle: tauri::AppHandle,
     port_state: tauri::State<PortState>,
-    stores: tauri::State<StoreCollection<Wry>>,
 ) -> Result<()> {
     debug!("Port name: {port_name:?}");
 
-    with_port(port_state, |port| {
-        port.set(handle.app_handle(), stores, port_name)
-    })
+    with_port(port_state, |port| port.set(handle, port_name))
 }
 
 #[tauri::command]
@@ -184,71 +185,24 @@ fn main() {
         )
         .init();
 
-    let context = tauri::generate_context!();
-
     #[allow(unused_mut)]
-    let mut builder = tauri::Builder::default();
+    let mut updater = tauri_plugin_updater::Builder::new();
 
     #[cfg(target_os = "macos")]
     {
-        let app_name: &str = &context.package_info().name;
-
-        builder = builder
-            .updater_target("darwin-universal")
-            .menu(
-                Menu::new()
-                    .add_submenu(Submenu::new(
-                        app_name,
-                        Menu::new()
-                            .add_native_item(MenuItem::About(
-                                app_name.to_string(),
-                                AboutMetadata::default(),
-                            ))
-                            .add_item(CustomMenuItem::new(
-                                "check-for-updates".to_string(),
-                                "Check for updates...",
-                            ))
-                            .add_native_item(MenuItem::Separator)
-                            .add_item(
-                                CustomMenuItem::new("settings".to_string(), "Settings")
-                                    .accelerator("cmd+,"),
-                            )
-                            .add_native_item(MenuItem::Separator)
-                            .add_native_item(MenuItem::Services)
-                            .add_native_item(MenuItem::Separator)
-                            .add_native_item(MenuItem::Hide)
-                            .add_native_item(MenuItem::HideOthers)
-                            .add_native_item(MenuItem::ShowAll)
-                            .add_native_item(MenuItem::Separator)
-                            .add_native_item(MenuItem::Quit),
-                    ))
-                    .add_submenu(Submenu::new(
-                        "Window",
-                        Menu::new()
-                            .add_native_item(MenuItem::Minimize)
-                            .add_native_item(MenuItem::Zoom)
-                            .add_native_item(MenuItem::CloseWindow),
-                    )),
-            )
-            .on_menu_event(|event| match event.menu_item_id() {
-                "settings" => {
-                    open_settings_window(&event.window().app_handle()).unwrap_or_default();
-                }
-                "check-for-updates" => {
-                    event.window().trigger("tauri://update", None);
-                }
-                _ => {}
-            });
+        updater = updater.target("darwin-universal");
     }
 
-    builder
+    tauri::Builder::default()
+        .plugin(updater.build())
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_dialog::init())
         .manage(PortState::default())
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(StateFlags::POSITION)
                 .build(),
         )
-        .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             ready,
             set_port,
@@ -263,21 +217,134 @@ fn main() {
             zoom,
             stop_zoom,
         ])
-        .on_window_event(|event| {
-            if let WindowEvent::Destroyed = event.event() {
-                if event.window().label() == "main" {
+        .on_window_event(|window, event| {
+            if let WindowEvent::Destroyed = event {
+                if window.label() == "main" {
                     std::process::exit(0);
                 }
             }
         })
         .setup(|app| {
-            let port_state: tauri::State<PortState> = app.state();
-            let stores: tauri::State<StoreCollection<Wry>> = app.state();
+            let port_state = app.state::<PortState>();
 
-            with_port(port_state, |port| port.initialize(app.app_handle(), stores))?;
+            with_port(port_state, |port| port.initialize(app.handle()))?;
+
+            #[cfg(target_os = "macos")]
+            {
+                let app_name = &app.package_info().name;
+
+                let app_menu = SubmenuBuilder::new(app, app_name)
+                    .about_with_text(format!("About {}", app_name), None)
+                    .item(
+                        &MenuItemBuilder::with_id("check-for-updates", "Check for updates...")
+                            .build(app)?,
+                    )
+                    .separator()
+                    .item(
+                        &MenuItemBuilder::with_id("settings", "Settings")
+                            .accelerator("cmd+,")
+                            .build(app)?,
+                    )
+                    .separator()
+                    .services()
+                    .separator()
+                    .hide_with_text(format!("Hide {}", app_name))
+                    .hide_others()
+                    .show_all()
+                    .quit_with_text(format!("Quit {}", app_name))
+                    .build()?;
+
+                let window_menu = SubmenuBuilder::new(app, "Window")
+                    .minimize()
+                    .maximize()
+                    .close_window()
+                    .build()?;
+
+                let menu = MenuBuilder::new(app)
+                    .item(&app_menu)
+                    .item(&window_menu)
+                    .build()?;
+
+                app.set_menu(menu)?;
+
+                app.on_menu_event(|app, event| {
+                    if event.id() == "settings" {
+                        open_settings_window(app).unwrap_or_default();
+                    } else if event.id() == "check-for-updates" {
+                        let handle = app.app_handle().clone();
+                        tauri::async_runtime::spawn(async move {
+                            update(handle).await.unwrap();
+                        });
+                    }
+                });
+            }
 
             Ok(())
         })
-        .run(context)
+        .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+async fn update(app: tauri::AppHandle) -> tauri_plugin_updater::Result<()> {
+    let app_name = &app.package_info().name;
+
+    if let Some(update) = app.updater()?.check().await? {
+        let body = update.body.clone().unwrap_or_else(|| String::from(""));
+
+        let should_install = app
+            .dialog()
+            .message(format!(
+                r#"{app_name} {} is now available -- you have {}.
+
+Would you like to install it now?
+
+Release Notes:
+{body}"#,
+                update.version, update.current_version
+            ))
+            .title(format!(r#"A new version of {app_name} is available!"#))
+            .kind(MessageDialogKind::Info)
+            .buttons(MessageDialogButtons::YesNo)
+            .blocking_show();
+
+        if should_install {
+            let mut downloaded = 0;
+
+            // alternatively we could also call update.download() and update.install() separately
+            update
+                .download_and_install(
+                    |chunk_length, content_length| {
+                        downloaded += chunk_length;
+                        println!("downloaded {downloaded} from {content_length:?}");
+                    },
+                    || {
+                        println!("download finished");
+                    },
+                )
+                .await?;
+
+            let should_exit = app
+                .dialog()
+                .message(
+                    "The installation was successful. Do you want to restart the application now?",
+                )
+                .title("Ready to Restart")
+                .kind(MessageDialogKind::Info)
+                .buttons(MessageDialogButtons::YesNo)
+                .blocking_show();
+
+            if should_exit {
+                app.restart();
+            }
+        }
+    } else {
+        app.dialog()
+            .message(format!("{app_name} is already up to date!"))
+            .kind(MessageDialogKind::Info)
+            .title("Up to Date")
+            .buttons(MessageDialogButtons::Ok)
+            .blocking_show();
+    }
+
+    Ok(())
 }

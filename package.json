@@ -11,12 +11,14 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@tauri-apps/api": "1.6.0",
-    "tauri-plugin-store-api": "github:tauri-apps/tauri-plugin-store#v1",
-    "tauri-plugin-window-state-api": "github:tauri-apps/tauri-plugin-window-state#v1"
+    "@tauri-apps/api": "2.5.0",
+    "@tauri-apps/plugin-dialog": "2.2.1",
+    "@tauri-apps/plugin-store": "2.2.0",
+    "@tauri-apps/plugin-updater": "2.7.1",
+    "@tauri-apps/plugin-window-state": "2.2.2"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "1.6.3",
+    "@tauri-apps/cli": "2.5.0",
     "@types/eslint": "9.6.1",
     "@types/eslint-config-prettier": "6.11.3",
     "@types/lint-staged": "13.3.0",
@@ -39,15 +41,6 @@
     "vite-plugin-checker": "0.9.3"
   },
   "pnpm": {
-    "peerDependencyRules": {
-      "allowedVersions": {
-        "typescript-eslint>eslint": "9",
-        "@typescript-eslint/eslint-plugin>eslint": "9",
-        "@typescript-eslint/type-utils>eslint": "9",
-        "@typescript-eslint/utils>eslint": "9",
-        "@typescript-eslint/parser>eslint": "9"
-      }
-    },
     "onlyBuiltDependencies": [
       "esbuild"
     ]

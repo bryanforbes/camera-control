@@ -2,8 +2,8 @@ use pelcodrs::Message;
 use serde::Serialize;
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 use std::sync::Mutex;
-use tauri::Manager;
-use tauri_plugin_store::{with_store, StoreCollection};
+use tauri::Emitter;
+use tauri_plugin_store::StoreExt;
 
 use crate::error::{Error, Result};
 
@@ -17,25 +17,18 @@ impl Port {
         self.port.as_ref().and_then(|port| port.name().clone())
     }
 
-    pub fn initialize<R>(
-        &mut self,
-        app: tauri::AppHandle<R>,
-        collection: tauri::State<'_, StoreCollection<R>>,
-    ) -> Result<()>
+    pub fn initialize<R>(&mut self, app: &tauri::AppHandle<R>) -> Result<()>
     where
         R: tauri::Runtime,
     {
-        with_store(app.app_handle(), collection, "config.json", |store| {
-            if let Some(port_name) = store.get("port").cloned() {
-                if self.set_port(port_name.as_str()).is_err() {
-                    store.insert("port".into(), serde_json::Value::Null)?;
-                    store.save()?;
-                }
+        let store = app.store("config.json")?;
+        if let Some(port_name) = store.get("port") {
+            if self.set_port(port_name.as_str()).is_err() {
+                store.set("port", serde_json::Value::Null);
+                store.save()?;
             }
-
-            Ok(())
-        })?;
-
+        }
+        store.close_resource();
         Ok(())
     }
 
@@ -59,21 +52,16 @@ impl Port {
         Ok(())
     }
 
-    pub fn set<R>(
-        &mut self,
-        app: tauri::AppHandle<R>,
-        collection: tauri::State<'_, StoreCollection<R>>,
-        path: Option<&str>,
-    ) -> Result<()>
+    pub fn set<R>(&mut self, app: tauri::AppHandle<R>, path: Option<&str>) -> Result<()>
     where
         R: tauri::Runtime,
     {
         self.set_port(path)?;
 
-        with_store(app.app_handle(), collection, "config.json", |store| {
-            store.insert("port".into(), path.into())?;
-            store.save()
-        })?;
+        let store = app.store("config.json")?;
+        store.set("port", path);
+        store.save()?;
+        store.close_resource();
 
         self.emit_all(&app)?;
 
@@ -92,7 +80,7 @@ impl Port {
     where
         R: tauri::Runtime,
     {
-        handle.emit_all("port-state", PortStateEvent::new(self))?;
+        handle.emit("port-state", PortStateEvent::new(self))?;
         Ok(())
     }
 
