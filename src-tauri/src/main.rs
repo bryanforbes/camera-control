@@ -273,11 +273,16 @@ fn main() {
                     } else if event.id() == "check-for-updates" {
                         let handle = app.app_handle().clone();
                         tauri::async_runtime::spawn(async move {
-                            update(handle).await.unwrap();
+                            check_for_updates(&handle, true).await.unwrap();
                         });
                     }
                 });
             }
+
+            let handle = app.app_handle().clone();
+            tauri::async_runtime::spawn(async move {
+                check_for_updates(&handle, false).await.unwrap();
+            });
 
             Ok(())
         })
@@ -285,7 +290,10 @@ fn main() {
         .expect("error while running tauri application");
 }
 
-async fn update(app: tauri::AppHandle) -> tauri_plugin_updater::Result<()> {
+async fn check_for_updates(
+    app: &tauri::AppHandle,
+    notify_up_to_date: bool,
+) -> tauri_plugin_updater::Result<()> {
     let app_name = &app.package_info().name;
 
     if let Some(update) = app.updater()?.check().await? {
@@ -337,7 +345,7 @@ Release Notes:
                 app.restart();
             }
         }
-    } else {
+    } else if notify_up_to_date {
         app.dialog()
             .message(format!("{app_name} is already up to date!"))
             .kind(MessageDialogKind::Info)
