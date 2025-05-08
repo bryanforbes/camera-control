@@ -1,10 +1,6 @@
-import {
-  createAddAsyncEventListener,
-  invoke,
-  listen,
-  toggleControls,
-  type PortState,
-} from './common';
+import { listen } from '@tauri-apps/api/event';
+import { commands, events, type PortStateEvent } from './bindings';
+import { createAddAsyncEventListener, toggleControls } from './common';
 
 function setStatus(status: string) {
   const statusNode = document.querySelector<HTMLParagraphElement>('.status');
@@ -32,11 +28,11 @@ async function goToPreset(event: MouseEvent): Promise<void> {
     return;
   }
 
-  await invoke('go_to_preset', { preset });
+  await commands.goToPreset(preset);
   setStatus(presetName);
 }
 
-function onStateChange({ port }: PortState) {
+function onStateChange({ port }: PortStateEvent) {
   toggleControls('.controls', Boolean(port));
   toggleControls('.presets', Boolean(port));
 
@@ -45,13 +41,13 @@ function onStateChange({ port }: PortState) {
 
 addAsyncEventListener(window, 'DOMContentLoaded', async (): Promise<void> => {
   addAsyncEventListener(document.querySelector<HTMLButtonElement>('.settings'), 'click', () =>
-    invoke('open_settings'),
+    commands.openSettings(),
   );
 
   addAsyncEventListener(document.querySelector<HTMLElement>('.presets'), 'click', goToPreset);
 
-  await listen('port-state', ({ payload }) => onStateChange(payload));
-  await listen('status', ({ payload }) => setStatus(payload));
+  await events.portStateEvent.listen(({ payload }) => onStateChange(payload));
+  await listen<string>('status', ({ payload }) => setStatus(payload));
 
-  await invoke('ready');
+  await commands.ready();
 });

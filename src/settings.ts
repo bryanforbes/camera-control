@@ -1,12 +1,7 @@
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { ask } from '@tauri-apps/plugin-dialog';
-import {
-  createAddAsyncEventListener,
-  invoke,
-  listen,
-  toggleControls,
-  type PortState,
-} from './common';
+import { commands, events, type PortStateEvent } from './bindings';
+import { createAddAsyncEventListener, toggleControls } from './common';
 
 async function setStatus(status: string): Promise<void> {
   return (await WebviewWindow.getByLabel('main'))?.emit('status', status);
@@ -22,13 +17,15 @@ function setupDirectionButton(button: HTMLButtonElement): void {
   }
 
   const isZoom = direction === 'in' || direction === 'out';
-  const command = isZoom ? 'zoom' : 'move_camera';
-  const stopCommand = isZoom ? 'stop_zoom' : 'stop_move';
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  const command = isZoom ? commands.zoom : commands.moveCamera;
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  const stopCommand = isZoom ? commands.stopZoom : commands.stopMove;
   const status = `${isZoom ? 'Zooming' : 'Moving'} ${direction}`;
   const stopStatus = `Done ${isZoom ? 'zooming' : 'moving'}`;
 
   addAsyncEventListener(button, 'pointerdown', async (event) => {
-    await invoke(command, { direction });
+    await command(direction);
     await setStatus(status);
 
     const controller = new AbortController();
@@ -38,7 +35,7 @@ function setupDirectionButton(button: HTMLButtonElement): void {
       'pointerup',
       async (event) => {
         try {
-          await invoke(stopCommand);
+          await stopCommand();
           await setStatus(stopStatus);
         } finally {
           controller.abort();
@@ -59,7 +56,7 @@ async function populatePorts(portSelect: HTMLSelectElement): Promise<void> {
 
   portSelect.appendChild(document.createElement('option'));
 
-  const ports = await invoke('get_ports');
+  const ports = await commands.getPorts();
 
   for (const port of ports) {
     const portOption = document.createElement('option');
@@ -88,12 +85,12 @@ async function confirmSetPreset(event: MouseEvent): Promise<void> {
   const confirmed = await ask(`Are you sure you want to set ${presetName}?`, { kind: 'warning' });
 
   if (confirmed) {
-    await invoke('set_preset', { preset });
+    await commands.setPreset(preset);
     await setStatus(`Set ${presetName}`);
   }
 }
 
-function onStateChange({ port }: PortState) {
+function onStateChange({ port }: PortStateEvent) {
   toggleControls('.controls', Boolean(port));
 
   const portSelect = document.querySelector<HTMLSelectElement>('#ports');
@@ -127,7 +124,7 @@ addAsyncEventListener(window, 'DOMContentLoaded', async (): Promise<void> => {
     const value = target.options[target.selectedIndex]?.value ?? null;
 
     console.log(value);
-    await invoke('set_port', { portName: value === '' ? null : value });
+    await commands.setPort(value === '' ? null : value);
   });
 
   for (const button of document.querySelectorAll<HTMLButtonElement>('.controls [data-direction]')) {
@@ -136,7 +133,8 @@ addAsyncEventListener(window, 'DOMContentLoaded', async (): Promise<void> => {
 
   addAsyncEventListener(document.querySelector<HTMLElement>('.presets'), 'click', confirmSetPreset);
 
-  await listen('port-state', ({ payload }) => onStateChange(payload));
+  await events.portStateEvent.listen(({ payload }) => onStateChange(payload));
+  // await listen('port-state', ({ payload }) => onStateChange(payload));
 
-  await invoke('ready');
+  await commands.ready();
 });

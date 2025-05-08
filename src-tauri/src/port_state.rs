@@ -1,9 +1,10 @@
 use pelcodrs::Message;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
+use specta::Type;
 use std::sync::Mutex;
-use tauri::Emitter;
 use tauri_plugin_store::StoreExt;
+use tauri_specta::Event;
 
 use crate::error::{Error, Result};
 
@@ -52,7 +53,7 @@ impl Port {
         Ok(())
     }
 
-    pub fn set<R>(&mut self, app: tauri::AppHandle<R>, path: Option<&str>) -> Result<()>
+    pub fn set<R>(&mut self, app: &tauri::AppHandle<R>, path: Option<&str>) -> Result<()>
     where
         R: tauri::Runtime,
     {
@@ -63,7 +64,7 @@ impl Port {
         store.save()?;
         store.close_resource();
 
-        self.emit_all(&app)?;
+        self.emit_all(app)?;
 
         Ok(())
     }
@@ -80,7 +81,7 @@ impl Port {
     where
         R: tauri::Runtime,
     {
-        handle.emit("port-state", PortStateEvent::new(self))?;
+        PortStateEvent::new(self).emit(handle)?;
         Ok(())
     }
 
@@ -88,13 +89,13 @@ impl Port {
     where
         R: tauri::Runtime,
     {
-        handle.emit_to(label, "port-state", PortStateEvent::new(self))?;
+        PortStateEvent::new(self).emit_to(handle, label)?;
         Ok(())
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct PortStateEvent {
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+pub struct PortStateEvent {
     port: Option<String>,
 }
 

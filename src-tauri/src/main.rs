@@ -7,11 +7,14 @@ extern crate pretty_env_logger;
 mod error;
 mod port_state;
 
+use std::{io, process::Command};
+
 use crate::error::Result;
 
 use log::debug;
 use pelcodrs::{AutoCtrl, Direction, Message, MessageBuilder, Speed};
-use port_state::{PortState, with_port};
+use port_state::{PortState, PortStateEvent, with_port};
+use specta_typescript::Typescript;
 use tauri::{
     Manager, WindowEvent,
     menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
@@ -19,6 +22,7 @@ use tauri::{
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 use tauri_plugin_window_state::StateFlags;
+use tauri_specta::{Builder, collect_commands, collect_events};
 
 fn open_settings_window(app_handle: &tauri::AppHandle) -> Result<()> {
     if let Some(window) = app_handle.get_webview_window("settings") {
@@ -41,11 +45,13 @@ fn open_settings_window(app_handle: &tauri::AppHandle) -> Result<()> {
 // This command MUST be async as per Tauri's documentation at
 // https://tauri.app/v1/guides/features/multiwindow#create-a-window-using-an-apphandle-instance
 #[tauri::command]
+#[specta::specta]
 async fn open_settings(app_handle: tauri::AppHandle) -> Result<()> {
     open_settings_window(&app_handle)
 }
 
 #[tauri::command]
+#[specta::specta]
 fn ready(
     app_handle: tauri::AppHandle,
     window: tauri::Window,
@@ -55,6 +61,7 @@ fn ready(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn set_port(
     port_name: Option<&str>,
     handle: tauri::AppHandle,
@@ -62,10 +69,11 @@ fn set_port(
 ) -> Result<()> {
     debug!("Port name: {port_name:?}");
 
-    with_port(port_state, |port| port.set(handle, port_name))
+    with_port(port_state, |port| port.set(&handle, port_name))
 }
 
 #[tauri::command]
+#[specta::specta]
 fn camera_power(port_state: tauri::State<PortState>, power: bool) -> Result<()> {
     debug!("Power: {:?}", power);
 
@@ -81,6 +89,7 @@ fn camera_power(port_state: tauri::State<PortState>, power: bool) -> Result<()> 
 }
 
 #[tauri::command]
+#[specta::specta]
 fn autofocus(port_state: tauri::State<PortState>, autofocus: bool) -> Result<()> {
     with_port(port_state, |port| {
         port.send_message(Message::auto_focus(
@@ -95,6 +104,7 @@ fn autofocus(port_state: tauri::State<PortState>, autofocus: bool) -> Result<()>
 }
 
 #[tauri::command]
+#[specta::specta]
 fn go_to_preset(port_state: tauri::State<PortState>, preset: u8) -> Result<()> {
     debug!("Go To Preset: {}", preset);
 
@@ -104,6 +114,7 @@ fn go_to_preset(port_state: tauri::State<PortState>, preset: u8) -> Result<()> {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn set_preset(port_state: tauri::State<PortState>, preset: u8) -> Result<()> {
     debug!("Set Preset: {}", preset);
 
@@ -113,6 +124,7 @@ fn set_preset(port_state: tauri::State<PortState>, preset: u8) -> Result<()> {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn move_camera(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
     debug!("Direction: {}", direction);
 
@@ -133,6 +145,7 @@ fn move_camera(port_state: tauri::State<PortState>, direction: &str) -> Result<(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn stop_move(port_state: tauri::State<PortState>) -> Result<()> {
     debug!("Stop Move");
 
@@ -142,6 +155,7 @@ fn stop_move(port_state: tauri::State<PortState>) -> Result<()> {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn zoom(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
     debug!("Zoom: {}", direction);
 
@@ -157,6 +171,7 @@ fn zoom(port_state: tauri::State<PortState>, direction: &str) -> Result<()> {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn stop_zoom(port_state: tauri::State<PortState>) -> Result<()> {
     debug!("Stop Zoom");
 
@@ -166,6 +181,7 @@ fn stop_zoom(port_state: tauri::State<PortState>) -> Result<()> {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn get_ports() -> Result<Vec<String>> {
     Ok(serialport::available_ports()?
         .into_iter()
@@ -193,17 +209,9 @@ fn main() {
         updater = updater.target("darwin-universal");
     }
 
-    tauri::Builder::default()
-        .plugin(updater.build())
-        .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_dialog::init())
-        .manage(PortState::default())
-        .plugin(
-            tauri_plugin_window_state::Builder::default()
-                .with_state_flags(StateFlags::POSITION)
-                .build(),
-        )
-        .invoke_handler(tauri::generate_handler![
+    #[allow(unused_mut)]
+    let mut builder = Builder::<tauri::Wry>::new()
+        .commands(collect_commands![
             ready,
             set_port,
             open_settings,
@@ -217,6 +225,38 @@ fn main() {
             zoom,
             stop_zoom,
         ])
+        .events(collect_events![PortStateEvent])
+        .error_handling(tauri_specta::ErrorHandlingMode::Throw);
+
+    #[cfg(debug_assertions)]
+    {
+        let ts = Typescript::default()
+            .header("/* eslint-disable */ // @ts-nocheck")
+            .formatter(|file| {
+                Command::new("../node_modules/.bin/prettier")
+                    .arg("--write")
+                    .arg(file)
+                    .output()
+                    .map(|_| ())
+                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+            });
+
+        builder
+            .export(ts, "../src/bindings.ts")
+            .expect("Failed to export typescript bindings");
+    }
+
+    tauri::Builder::default()
+        .plugin(updater.build())
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_dialog::init())
+        .manage(PortState::default())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::POSITION)
+                .build(),
+        )
+        .invoke_handler(builder.invoke_handler())
         .on_window_event(|window, event| {
             if let WindowEvent::Destroyed = event {
                 if window.label() == "main" {
@@ -224,7 +264,9 @@ fn main() {
                 }
             }
         })
-        .setup(|app| {
+        .setup(move |app| {
+            builder.mount_events(app);
+
             let port_state = app.state::<PortState>();
 
             with_port(port_state, |port| port.initialize(app.handle()))?;
