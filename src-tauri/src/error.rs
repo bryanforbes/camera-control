@@ -1,33 +1,47 @@
+use serde::Serialize;
+use specta::Type;
 use thiserror::Error as ThisError;
 
-#[derive(ThisError, Debug)]
+#[derive(ThisError, Debug, Serialize, Type)]
+#[serde(tag = "type", content = "data")]
 pub enum Error {
-    #[error("no port set")]
+    #[error("No port set")]
     NoPortSet,
 
-    #[error(transparent)]
-    Tauri(#[from] tauri::Error),
+    #[error("Tauri error: {0}")]
+    Tauri(
+        #[serde(skip)]
+        #[from]
+        tauri::Error,
+    ),
 
-    #[error(transparent)]
-    Store(#[from] tauri_plugin_store::Error),
+    #[error("Store error: {0}")]
+    Store(
+        #[serde(skip)]
+        #[from]
+        tauri_plugin_store::Error,
+    ),
 
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
+    #[error("Store error: {0}")]
+    Io(
+        #[serde(skip)]
+        #[from]
+        std::io::Error,
+    ),
 
-    #[error(transparent)]
-    SerialPort(#[from] serialport::Error),
+    #[error("SerialPort error: {0}")]
+    SerialPort(
+        #[serde(skip)]
+        #[from]
+        serialport::Error,
+    ),
 
-    #[error(transparent)]
-    PelcoD(#[from] pelcodrs::Error),
-}
-
-impl serde::Serialize for Error {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(self.to_string().as_ref())
-    }
+    #[error("PelcoD error: {0}")]
+    PelcoD(
+        #[serde(skip)]
+        #[from]
+        pelcodrs::Error,
+    ),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

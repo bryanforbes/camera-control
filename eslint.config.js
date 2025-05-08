@@ -5,7 +5,7 @@ import ts from 'typescript-eslint';
 
 export default ts.config(
   {
-    ignores: ['src/commands.ts', 'src-tauri/**', 'dist*/**'],
+    ignores: ['src-tauri/**', 'dist*/**'],
   },
   js.configs.recommended,
   ...ts.configs.strictTypeChecked,
@@ -25,6 +25,13 @@ export default ts.config(
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/consistent-type-exports': 'error',
       '@typescript-eslint/no-import-type-side-effects': 'error',
+      '@typescript-eslint/no-invalid-void-type': [
+        'error',
+        {
+          allowAsThisParameter: true,
+          allowInGenericTypeArguments: true,
+        },
+      ],
     },
   },
   {
