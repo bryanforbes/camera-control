@@ -24,6 +24,9 @@ thiserror = "=2.0.12"
 log = "=0.4.27"
 pretty_env_logger = "=0.5.0"
 pelcodrs = "=0.2.1"
+specta = "=2.0.0-rc.22"
+specta-typescript = "=0.0.9"
+tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 
 [dev-dependencies]
 test-case = "=3.3.1"

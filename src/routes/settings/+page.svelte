@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invoke } from '$lib/common';
+  import { commands } from '$lib/bindings';
   import { ui_state } from '$lib/ui_state.svelte';
   import { ask } from '@tauri-apps/plugin-dialog';
   import { on } from 'svelte/events';
@@ -10,7 +10,7 @@
     });
 
     if (confirmed) {
-      await invoke('set_preset', { preset, name });
+      await commands.setPreset(preset, name);
     }
   }
 
@@ -21,14 +21,14 @@
     const button = event.target as HTMLButtonElement;
 
     const isZoom = direction === 'in' || direction === 'out';
-    const startCommand = isZoom ? 'zoom' : 'move_camera';
-    const stopCommand = isZoom ? 'stop_zoom' : 'stop_move';
+    const startCommand = isZoom ? 'zoom' : 'moveCamera';
+    const stopCommand = isZoom ? 'stopZoom' : 'stopMove';
 
-    await invoke(startCommand, { direction });
+    await commands[startCommand](direction);
 
     const onpointerup = async (event: PointerEvent) => {
       try {
-        await invoke(stopCommand);
+        await commands[stopCommand]();
       } finally {
         off();
         button.releasePointerCapture(event.pointerId);
@@ -52,8 +52,7 @@
       id="ports"
       bind:value={
         () => ui_state.port ?? '',
-        (value: string) =>
-          void invoke('set_port', { portName: value === '' ? null : value })
+        (value: string) => void commands.setPort(value === '' ? null : value)
       }
     >
       <option value=""></option>
