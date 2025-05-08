@@ -25,12 +25,24 @@ createUpdaterArtifacts = "v1Compatible"
 with-global-tauri = true
 
 [[app.windows]]
+title = "Camera Control"
 fullscreen = false
 resizable = false
-title = "Camera Control"
 accept-first-mouse = true
 width = 350
 height = 450
+use-https-scheme = true
+
+[[app.windows]]
+title = "Camera Control Settings"
+label = "settings"
+url = "settings.html"
+create = false
+fullscreen = false
+resizable = false
+accept-first-mouse = true
+width = 600
+height = 480
 use-https-scheme = true
 
 [app.security]

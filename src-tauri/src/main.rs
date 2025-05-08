@@ -23,17 +23,14 @@ use tauri_plugin_window_state::StateFlags;
 fn open_settings_window(app_handle: &tauri::AppHandle) -> Result<()> {
     if let Some(window) = app_handle.get_webview_window("settings") {
         window.set_focus()?;
-    } else {
-        tauri::WebviewWindowBuilder::new(
-            app_handle,
-            "settings",
-            tauri::WebviewUrl::App("settings.html".into()),
-        )
-        .title("Camera Control Settings")
-        .resizable(false)
-        .accept_first_mouse(true)
-        .inner_size(600.0, 480.0)
-        .build()?;
+    } else if let Some(config) = app_handle
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|item| item.label == "settings")
+    {
+        tauri::WebviewWindowBuilder::from_config(app_handle, config)?.build()?;
     }
     Ok(())
 }

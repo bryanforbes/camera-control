@@ -33,6 +33,9 @@ test-case = "=3.3.1"
 # DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
 
+[profile.dev]
+incremental = true
+
 [profile.release]
 panic = "abort"    # Strip expensive panic clean-up logic
 codegen-units = 1  # Compile crates one after another so the compiler can optimize better
