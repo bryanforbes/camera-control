@@ -11,10 +11,10 @@ use crate::error::Result;
 
 use log::debug;
 use pelcodrs::{AutoCtrl, Direction, Message, MessageBuilder, Speed};
-use port_state::{with_port, PortState};
+use port_state::{PortState, with_port};
 use tauri::{
-    menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
     Manager, WindowEvent,
+    menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
 };
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;

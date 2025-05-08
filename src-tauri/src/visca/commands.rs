@@ -69,11 +69,7 @@ impl Inquiry for Power {
 
 impl From<bool> for Power {
     fn from(value: bool) -> Self {
-        if value {
-            Self::On
-        } else {
-            Self::Off
-        }
+        if value { Self::On } else { Self::Off }
     }
 }
 
