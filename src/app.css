@@ -1,0 +1,96 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', 'Avenir', 'Helvetica', 'Arial', sans-serif;
+  --text-base: 16px;
+  /* stylelint-disable-next-line custom-property-pattern */
+  --text-base--line-height: 24px;
+}
+
+:root {
+  font-synthesis: none;
+  text-rendering: optimizelegibility;
+  /* stylelint-disable-next-line property-no-vendor-prefix */
+  -webkit-text-size-adjust: 100%;
+}
+
+@layer base {
+  :is(button, select) {
+    background-color: var(--color-white);
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 2px 2px rgb(0 0 0 / 20%);
+    color: #0f0f0f;
+    cursor: pointer;
+    font-weight: var(--font-weight-medium);
+    outline: none;
+    padding: 10px 20px;
+    transition: border-color 0.25s;
+
+    &:hover,
+    &:focus {
+      border-color: #396cd8;
+    }
+
+    &:active {
+      background-color: #e8e8e8;
+      border-color: #396cd8;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      background-color: #0f0f0f98;
+      color: #fff;
+
+      &:active {
+        background-color: #0f0f0f69;
+      }
+    }
+  }
+
+  input[type='checkbox'].toggle {
+    appearance: none;
+    background: #ccc;
+    border-radius: 24px;
+    cursor: pointer;
+    height: 24px;
+    margin-left: 4px;
+    position: relative;
+    transition: 0.4s;
+    vertical-align: middle;
+    width: 42px;
+
+    &::before {
+      background: #fff;
+      border-radius: 50%;
+      bottom: 2px;
+      box-shadow: 0 2px 2px rgb(0 0 0 / 20%);
+      content: '';
+      font-size: 0.75rem;
+      font-weight: 600;
+      height: 20px;
+      left: 2px;
+      line-height: 20px;
+      position: absolute;
+      text-align: center;
+      transition: 0.4s;
+      width: 20px;
+    }
+
+    &:checked {
+      background: #4cd964;
+
+      &::before {
+        transform: translateX(18px);
+      }
+    }
+  }
+
+  label:has(> input[type='checkbox'].toggle) {
+    cursor: pointer;
+    padding: 10px;
+  }
+
+  :where([inert]) :is(button, select, input[type='checkbox'].toggle) {
+    opacity: 0.4;
+  }
+}
