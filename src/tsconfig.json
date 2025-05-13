@@ -1,8 +1,0 @@
-{
-  "$schema": "https://json.schemastore.org/tsconfig.json",
-  "compilerOptions": {
-    "types": ["vite/client"]
-  },
-  "extends": ["../tsconfig.base.json"],
-  "include": ["."]
-}

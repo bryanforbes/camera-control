@@ -6,7 +6,7 @@ identifier = "net.reigndropsfall.camera-control"
 [build]
 before-dev-command = "pnpm dev"
 before-build-command = "pnpm build"
-frontend-dist = "../dist"
+frontend-dist = "../build"
 dev-url = "http://localhost:1420"
 
 [bundle]
@@ -26,8 +26,10 @@ with-global-tauri = true
 
 [[app.windows]]
 title = "Camera Control"
+label = "main"
 fullscreen = false
 resizable = false
+visible = false  # see +layout.svelte for explanation
 accept-first-mouse = true
 width = 350
 height = 450
@@ -36,10 +38,11 @@ use-https-scheme = true
 [[app.windows]]
 title = "Camera Control Settings"
 label = "settings"
-url = "settings.html"
+url = "/settings"
 create = false
 fullscreen = false
 resizable = false
+visible = false  # see +layout.svelte for explanation
 accept-first-mouse = true
 width = 600
 height = 480
@@ -51,6 +54,7 @@ freeze-prototype = true
 [app.security.csp]
 default-src = "'self'"
 connect-src = "ipc: http://ipc.localhost"
+style-src = "'unsafe-inline' 'self'"
 
 [app.security.pattern]
 use = "isolation"

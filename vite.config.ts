@@ -1,44 +1,34 @@
-import { resolve } from 'path';
-import { defineConfig } from 'vite';
-import checker from 'vite-plugin-checker';
+import { sveltekit } from '@sveltejs/kit/vite';
+import tailwind from '@tailwindcss/vite';
+import { defineConfig, type ServerOptions } from 'vite';
+
+const host = process.env['TAURI_DEV_HOST'] ?? '';
+
+const server: ServerOptions = {
+  // tauri expects a fixed port, fail if that port is not available
+  port: 1420,
+  strictPort: true,
+  host: host || false,
+  watch: {
+    ignored: ['**/src-tauri/**'],
+  },
+};
+
+if (host) {
+  server.hmr = {
+    protocol: 'ws',
+    host,
+    port: 1421,
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  plugins: [tailwind(), sveltekit()],
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   // prevent vite from obscuring rust errors
   clearScreen: false,
-  // tauri expects a fixed port, fail if that port is not available
-  server: {
-    port: 1420,
-    strictPort: true,
-  },
-  // to make use of `TAURI_DEBUG` and other env variables
-  // https://tauri.studio/v1/api/config#buildconfig.beforedevcommand
-  envPrefix: ['VITE_', 'TAURI_'],
-  build: {
-    // Tauri supports es2021
-    target: process.env['TAURI_PLATFORM'] == 'windows' ? 'chrome105' : 'safari13',
-    // don't minify for debug builds
-    minify: !process.env['TAURI_DEBUG'] ? ('esbuild' as const) : false,
-    // produce sourcemaps for debug builds
-    sourcemap: !!process.env['TAURI_DEBUG'],
 
-    outDir: '../dist',
-    emptyOutDir: true,
-
-    rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'src/index.html'),
-        settings: resolve(__dirname, 'src/settings.html'),
-      },
-    },
-  },
-
-  plugins: [
-    checker({
-      typescript: {
-        tsconfigPath: 'src/tsconfig.json',
-      },
-    }),
-  ],
+  server,
 });

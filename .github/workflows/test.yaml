@@ -29,6 +29,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rust-targets }}
+          components: 'clippy'
 
       - uses: pnpm/action-setup@v2
         name: Install pnpm
@@ -57,6 +58,13 @@ jobs:
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Lint files (macOS only)
+        if: ${{ startsWith(matrix.platform, 'macos-') }}
+        run: |
+          cargo clippy --manifest-path src-tauri/Cargo.toml --no-deps
+          pnpm check
+          pnpm lint
 
       - name: Run unit tests
         run: |
