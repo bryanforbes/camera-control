@@ -1,21 +1,21 @@
-import { invoke, listen, type UIState } from './common';
+import { commands, events, type UIStateEvent } from './bindings';
 
-const _ui_state: UIState = $state({
+const _ui_state: UIStateEvent = $state({
   port: null,
   ports: null,
   status: 'Disconnected',
 });
 
-void invoke('get_state').then(({ port, ports, status }) => {
+void commands.getState().then(({ port, ports, status }) => {
   _ui_state.port = port;
   _ui_state.ports = ports;
   _ui_state.status = status;
 });
 
-void listen('ui-state', ({ payload: { port, ports, status } }) => {
+void events.uiStateEvent.listen(({ payload: { port, ports, status } }) => {
   _ui_state.port = port;
   _ui_state.ports = ports;
   _ui_state.status = status;
 });
 
-export const ui_state: Readonly<UIState> = _ui_state;
+export const ui_state: Readonly<UIStateEvent> = _ui_state;

@@ -4,8 +4,10 @@ use log::debug;
 use pelcodrs::Message;
 use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
-use tauri::{Emitter, Manager};
+use specta::Type;
+use tauri::Manager;
 use tauri_plugin_store::StoreExt;
+use tauri_specta::Event;
 
 use crate::error::{Error, Result};
 
@@ -125,7 +127,7 @@ impl UIState {
 
 pub type UIStateHandle = Mutex<UIState>;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
 pub struct UIStateEvent {
     port: Option<String>,
     ports: Option<Vec<String>>,
@@ -162,7 +164,7 @@ where
 
     let result = func(&mut state);
 
-    app_handle.emit("ui-state", UIStateEvent::new(&state))?;
+    UIStateEvent::new(&state).emit(app_handle)?;
 
     result
 }

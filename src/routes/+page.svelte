@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { invoke } from '$lib/common';
+  import { commands } from '$lib/bindings';
   import { ui_state } from '$lib/ui_state.svelte';
 
   async function goToPreset(preset: number, name: string) {
-    await invoke('go_to_preset', { preset, name });
+    await commands.goToPreset(preset, name);
   }
 
   async function openSettings() {
-    await invoke('open_settings');
+    await commands.openSettings();
   }
 </script>
 

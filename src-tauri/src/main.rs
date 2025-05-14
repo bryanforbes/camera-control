@@ -9,10 +9,13 @@ mod ui_state;
 
 use std::sync::Mutex;
 
+use std::{io, process::Command};
+
 use crate::error::Result;
 
 use log::debug;
 use pelcodrs::{AutoCtrl, Direction, Message, MessageBuilder, Speed};
+use specta_typescript::Typescript;
 use tauri::{
     Manager, WindowEvent,
     menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
@@ -20,6 +23,7 @@ use tauri::{
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 use tauri_plugin_window_state::StateFlags;
+use tauri_specta::{Builder, collect_commands, collect_events};
 use ui_state::{UIState, UIStateEvent, with_ui_state};
 
 fn open_settings_window(app_handle: &tauri::AppHandle) -> Result<()> {
@@ -40,17 +44,20 @@ fn open_settings_window(app_handle: &tauri::AppHandle) -> Result<()> {
 // This command MUST be async as per Tauri's documentation at
 // https://tauri.app/v1/guides/features/multiwindow#create-a-window-using-an-apphandle-instance
 #[tauri::command]
+#[specta::specta]
 async fn open_settings(app_handle: tauri::AppHandle) -> Result<()> {
     with_ui_state(&app_handle, |ui| ui.populate_ports())?;
     open_settings_window(&app_handle)
 }
 
 #[tauri::command]
+#[specta::specta]
 fn get_state(app_handle: tauri::AppHandle) -> Result<UIStateEvent> {
     UIStateEvent::try_from(&app_handle)
 }
 
 #[tauri::command]
+#[specta::specta]
 fn set_port(app_handle: tauri::AppHandle, port_name: Option<&str>) -> Result<()> {
     debug!("Port name: {port_name:?}");
 
@@ -58,6 +65,7 @@ fn set_port(app_handle: tauri::AppHandle, port_name: Option<&str>) -> Result<()>
 }
 
 #[tauri::command]
+#[specta::specta]
 fn camera_power(app_handle: tauri::AppHandle, power: bool) -> Result<()> {
     debug!("Power: {:?}", power);
 
@@ -73,6 +81,7 @@ fn camera_power(app_handle: tauri::AppHandle, power: bool) -> Result<()> {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn autofocus(app_handle: tauri::AppHandle, autofocus: bool) -> Result<()> {
     with_ui_state(&app_handle, |ui| {
         ui.port.send_message(Message::auto_focus(
@@ -87,6 +96,7 @@ fn autofocus(app_handle: tauri::AppHandle, autofocus: bool) -> Result<()> {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn go_to_preset(app_handle: tauri::AppHandle, preset: u8, name: &str) -> Result<()> {
     debug!("Go To Preset: {}", preset);
 
@@ -97,6 +107,7 @@ fn go_to_preset(app_handle: tauri::AppHandle, preset: u8, name: &str) -> Result<
 }
 
 #[tauri::command]
+#[specta::specta]
 fn set_preset(app_handle: tauri::AppHandle, preset: u8, name: &str) -> Result<()> {
     debug!("Set Preset: {}", preset);
 
@@ -108,6 +119,7 @@ fn set_preset(app_handle: tauri::AppHandle, preset: u8, name: &str) -> Result<()
 }
 
 #[tauri::command]
+#[specta::specta]
 fn move_camera(app_handle: tauri::AppHandle, direction: &str) -> Result<()> {
     debug!("Direction: {}", direction);
 
@@ -130,6 +142,7 @@ fn move_camera(app_handle: tauri::AppHandle, direction: &str) -> Result<()> {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn stop_move(app_handle: tauri::AppHandle) -> Result<()> {
     debug!("Stop Move");
 
@@ -141,6 +154,7 @@ fn stop_move(app_handle: tauri::AppHandle) -> Result<()> {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn zoom(app_handle: tauri::AppHandle, direction: &str) -> Result<()> {
     debug!("Zoom: {}", direction);
 
@@ -160,6 +174,7 @@ fn zoom(app_handle: tauri::AppHandle, direction: &str) -> Result<()> {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn stop_zoom(app_handle: tauri::AppHandle) -> Result<()> {
     debug!("Stop Zoom");
 
@@ -168,6 +183,15 @@ fn stop_zoom(app_handle: tauri::AppHandle) -> Result<()> {
             .send_message(MessageBuilder::new(1).stop().finalize()?)?;
         ui.set_status("Done zooming")
     })
+}
+
+#[tauri::command]
+#[specta::specta]
+fn get_ports() -> Result<Vec<String>> {
+    Ok(serialport::available_ports()?
+        .into_iter()
+        .map(|port| port.port_name)
+        .collect())
 }
 
 fn main() {
@@ -190,6 +214,43 @@ fn main() {
         updater = updater.target("darwin-universal");
     }
 
+    #[allow(unused_mut)]
+    let mut builder = Builder::<tauri::Wry>::new()
+        .commands(collect_commands![
+            open_settings,
+            get_state,
+            set_port,
+            camera_power,
+            autofocus,
+            go_to_preset,
+            set_preset,
+            move_camera,
+            stop_move,
+            zoom,
+            stop_zoom,
+            get_ports,
+        ])
+        .events(collect_events![UIStateEvent])
+        .error_handling(tauri_specta::ErrorHandlingMode::Throw);
+
+    #[cfg(debug_assertions)]
+    {
+        let ts = Typescript::default()
+            .header("/* eslint-disable */ // @ts-nocheck")
+            .formatter(|file| {
+                Command::new("../node_modules/.bin/prettier")
+                    .arg("--write")
+                    .arg(file)
+                    .output()
+                    .map(|_| ())
+                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+            });
+
+        builder
+            .export(ts, "../src/lib/bindings.ts")
+            .expect("Failed to export typescript bindings");
+    }
+
     tauri::Builder::default()
         .plugin(updater.build())
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -200,19 +261,7 @@ fn main() {
                 .with_state_flags(StateFlags::POSITION)
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![
-            set_port,
-            open_settings,
-            camera_power,
-            autofocus,
-            go_to_preset,
-            set_preset,
-            move_camera,
-            stop_move,
-            zoom,
-            stop_zoom,
-            get_state,
-        ])
+        .invoke_handler(builder.invoke_handler())
         .on_window_event(|window, event| {
             if let WindowEvent::Destroyed = event {
                 if window.label() == "main" {
@@ -220,7 +269,9 @@ fn main() {
                 }
             }
         })
-        .setup(|app| {
+        .setup(move |app| {
+            builder.mount_events(app);
+
             with_ui_state(app.app_handle(), |ui| ui.initialize(app.handle()))?;
 
             #[cfg(target_os = "macos")]
