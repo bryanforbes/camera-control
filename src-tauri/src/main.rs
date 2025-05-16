@@ -15,7 +15,6 @@ use crate::error::Result;
 
 use log::debug;
 use pelcodrs::{AutoCtrl, Direction, Message, MessageBuilder, Speed};
-use specta_typescript::Typescript;
 use tauri::{
     Manager, WindowEvent,
     menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
@@ -23,7 +22,6 @@ use tauri::{
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 use tauri_plugin_window_state::StateFlags;
-use tauri_specta::{Builder, collect_commands, collect_events};
 use ui_state::{UIState, UIStateEvent, with_ui_state};
 
 fn open_settings_window(app_handle: &tauri::AppHandle) -> Result<()> {
@@ -214,9 +212,8 @@ fn main() {
         updater = updater.target("darwin-universal");
     }
 
-    #[allow(unused_mut)]
-    let mut builder = Builder::<tauri::Wry>::new()
-        .commands(collect_commands![
+    let specta_builder = tauri_specta::Builder::<tauri::Wry>::new()
+        .commands(tauri_specta::collect_commands![
             open_settings,
             get_state,
             set_port,
@@ -230,12 +227,12 @@ fn main() {
             stop_zoom,
             get_ports,
         ])
-        .events(collect_events![UIStateEvent])
+        .events(tauri_specta::collect_events![UIStateEvent])
         .error_handling(tauri_specta::ErrorHandlingMode::Throw);
 
     #[cfg(debug_assertions)]
     {
-        let ts = Typescript::default()
+        let ts = specta_typescript::Typescript::default()
             .header("/* eslint-disable */ // @ts-nocheck")
             .formatter(|file| {
                 Command::new("../node_modules/.bin/prettier")
@@ -246,7 +243,7 @@ fn main() {
                     .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
             });
 
-        builder
+        specta_builder
             .export(ts, "../src/lib/bindings.ts")
             .expect("Failed to export typescript bindings");
     }
@@ -261,7 +258,7 @@ fn main() {
                 .with_state_flags(StateFlags::POSITION)
                 .build(),
         )
-        .invoke_handler(builder.invoke_handler())
+        .invoke_handler(specta_builder.invoke_handler())
         .on_window_event(|window, event| {
             if let WindowEvent::Destroyed = event {
                 if window.label() == "main" {
@@ -270,7 +267,7 @@ fn main() {
             }
         })
         .setup(move |app| {
-            builder.mount_events(app);
+            specta_builder.mount_events(app);
 
             with_ui_state(app.app_handle(), |ui| ui.initialize(app.handle()))?;
 
