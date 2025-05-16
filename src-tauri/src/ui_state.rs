@@ -2,7 +2,7 @@ use std::sync::Mutex;
 
 use log::debug;
 use pelcodrs::Message;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 use specta::Type;
 use tauri::Manager;
@@ -12,30 +12,13 @@ use tauri_specta::Event;
 use crate::error::{Error, Result};
 
 #[derive(Default)]
-pub struct Port {
+pub struct UIState {
     port: Option<Box<dyn SerialPort>>,
+    ports: Option<Vec<String>>,
+    status: String,
 }
 
-impl Port {
-    fn name(&self) -> Option<String> {
-        self.port.as_ref().and_then(|port| port.name().clone())
-    }
-
-    fn initialize<R>(&mut self, app: &tauri::AppHandle<R>) -> Result<()>
-    where
-        R: tauri::Runtime,
-    {
-        let store = app.store("config.json")?;
-        if let Some(port_name) = store.get("port") {
-            if self.set_port(port_name.as_str()).is_err() {
-                store.set("port", serde_json::Value::Null);
-                store.save()?;
-            }
-        }
-        store.close_resource();
-        Ok(())
-    }
-
+impl UIState {
     fn set_port(&mut self, path: Option<&str>) -> Result<()> {
         debug!("{path:?}");
 
@@ -56,30 +39,17 @@ impl Port {
         Ok(())
     }
 
-    pub fn send_message(&mut self, message: Message) -> Result<()> {
-        if let Some(port) = self.port.as_mut() {
-            Ok(port.write_all(message.as_ref())?)
-        } else {
-            Err(Error::NoPortSet)
+    pub fn initialize<R: tauri::Runtime>(&mut self, app: &tauri::AppHandle<R>) -> Result<()> {
+        let store = app.store("config.json")?;
+        if let Some(port_name) = store.get("port") {
+            if self.set_port(port_name.as_str()).is_err() {
+                store.set("port", serde_json::Value::Null);
+                store.save()?;
+            }
         }
-    }
-}
+        store.close_resource();
 
-#[derive(Default)]
-pub struct UIState {
-    pub port: Port,
-    ports: Option<Vec<String>>,
-    status: String,
-}
-
-impl UIState {
-    pub fn initialize<R>(&mut self, app: &tauri::AppHandle<R>) -> Result<()>
-    where
-        R: tauri::Runtime,
-    {
-        self.port.initialize(app)?;
-
-        if self.port.name().is_some() {
+        if self.port.is_some() {
             self.set_status("Connected")?;
         } else {
             self.set_status("Disconnected")?;
@@ -89,24 +59,36 @@ impl UIState {
     }
 
     pub fn port_name(&self) -> Option<String> {
-        self.port.name()
+        self.port.as_ref().and_then(|port| port.name().clone())
     }
 
-    pub fn set_port(&mut self, app_handle: &tauri::AppHandle, path: Option<&str>) -> Result<()> {
-        self.port.set_port(path)?;
-
-        if self.port.name().is_some() {
-            self.set_status("Connected")?;
-        } else {
-            self.set_status("Disconnected")?;
-        }
+    pub fn set_port_path<R: tauri::Runtime>(
+        &mut self,
+        app_handle: &tauri::AppHandle<R>,
+        path: Option<&str>,
+    ) -> Result<()> {
+        self.set_port(path)?;
 
         let store = app_handle.store("config.json")?;
         store.set("port", path);
         store.save()?;
         store.close_resource();
 
+        if self.port.is_some() {
+            self.set_status("Connected")?;
+        } else {
+            self.set_status("Disconnected")?;
+        }
+
         Ok(())
+    }
+
+    pub fn send_port_message(&mut self, message: Message) -> Result<()> {
+        if let Some(port) = self.port.as_mut() {
+            Ok(port.write_all(message.as_ref())?)
+        } else {
+            Err(Error::NoPortSet)
+        }
     }
 
     pub fn set_status(&mut self, status: &str) -> Result<()> {
@@ -114,7 +96,7 @@ impl UIState {
         Ok(())
     }
 
-    pub fn populate_ports(&mut self) -> Result<()> {
+    pub fn refresh_ports(&mut self) -> Result<()> {
         self.ports = Some(
             serialport::available_ports()?
                 .into_iter()
@@ -125,9 +107,7 @@ impl UIState {
     }
 }
 
-pub type UIStateHandle = Mutex<UIState>;
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type, Event)]
+#[derive(Debug, Clone, Serialize, Type, Event)]
 pub struct UIStateEvent {
     port: Option<String>,
     ports: Option<Vec<String>>,
@@ -148,7 +128,7 @@ impl TryFrom<&tauri::AppHandle> for UIStateEvent {
     type Error = crate::error::Error;
 
     fn try_from(app_handle: &tauri::AppHandle) -> Result<Self> {
-        let state = app_handle.state::<UIStateHandle>();
+        let state = app_handle.state::<Mutex<UIState>>();
         let state = state.lock().expect("mutext poisoned");
 
         Ok(UIStateEvent::new(&state))
@@ -159,7 +139,7 @@ pub fn with_ui_state<T, F>(app_handle: &tauri::AppHandle, func: F) -> Result<T>
 where
     F: FnOnce(&mut UIState) -> Result<T>,
 {
-    let state = app_handle.state::<UIStateHandle>();
+    let state = app_handle.state::<Mutex<UIState>>();
     let mut state = state.lock().expect("mutext poisoned");
 
     let result = func(&mut state);
