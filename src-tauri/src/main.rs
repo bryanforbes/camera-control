@@ -248,16 +248,31 @@ fn main() {
             .expect("Failed to export typescript bindings");
     }
 
-    tauri::Builder::default()
+    #[allow(unused_mut)]
+    let mut tauri_builder = tauri::Builder::default()
         .plugin(updater.build())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
-        .manage(Mutex::new(UIState::default()))
+        .plugin(tauri_plugin_prevent_default::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(StateFlags::POSITION)
                 .build(),
-        )
+        );
+
+    #[cfg(desktop)]
+    {
+        tauri_builder =
+            tauri_builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+                let _ = app
+                    .get_webview_window("main")
+                    .expect("no main window")
+                    .set_focus();
+            }));
+    }
+
+    tauri_builder
+        .manage(Mutex::new(UIState::default()))
         .invoke_handler(specta_builder.invoke_handler())
         .on_window_event(|window, event| {
             if let WindowEvent::Destroyed = event {
