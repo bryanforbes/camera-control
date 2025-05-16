@@ -4,6 +4,7 @@
 extern crate log;
 extern crate pretty_env_logger;
 
+mod camera;
 mod error;
 mod ui_state;
 
@@ -110,7 +111,7 @@ fn set_preset(app_handle: tauri::AppHandle, preset: u8, name: &str) -> Result<()
     debug!("Set Preset: {}", preset);
 
     with_ui_state(&app_handle, |ui| {
-        ui.send_port_message(Message::go_to_preset(1, preset)?)?;
+        ui.send_port_message(Message::set_preset(1, preset)?)?;
         let status = format!("Set {name}");
         ui.set_status(&status)
     })
