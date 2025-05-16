@@ -204,14 +204,6 @@ fn main() {
         )
         .init();
 
-    #[allow(unused_mut)]
-    let mut updater = tauri_plugin_updater::Builder::new();
-
-    #[cfg(target_os = "macos")]
-    {
-        updater = updater.target("darwin-universal");
-    }
-
     let specta_builder = tauri_specta::Builder::<tauri::Wry>::new()
         .commands(tauri_specta::collect_commands![
             open_settings,
@@ -249,26 +241,34 @@ fn main() {
     }
 
     #[allow(unused_mut)]
+    let mut updater = tauri_plugin_updater::Builder::new();
+
+    #[cfg(target_os = "macos")]
+    {
+        updater = updater.target("darwin-universal");
+    }
+
+    #[allow(unused_mut)]
     let mut tauri_builder = tauri::Builder::default()
         .plugin(updater.build())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_prevent_default::init())
-        .plugin(
-            tauri_plugin_window_state::Builder::default()
-                .with_state_flags(StateFlags::POSITION)
-                .build(),
-        );
+        .plugin(tauri_plugin_prevent_default::debug());
 
     #[cfg(desktop)]
     {
-        tauri_builder =
-            tauri_builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        tauri_builder = tauri_builder
+            .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
                 let _ = app
                     .get_webview_window("main")
                     .expect("no main window")
                     .set_focus();
-            }));
+            }))
+            .plugin(
+                tauri_plugin_window_state::Builder::default()
+                    .with_state_flags(StateFlags::POSITION)
+                    .build(),
+            );
     }
 
     tauri_builder
