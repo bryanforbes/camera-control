@@ -1,39 +1,33 @@
 use std::sync::Mutex;
 
 use log::debug;
-use pelcodrs::Message;
 use serde::Serialize;
-use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 use specta::Type;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 use tauri_specta::Event;
 
-use crate::error::{Error, Result};
+use crate::{
+    camera::Camera,
+    error::{Error, Result},
+};
 
 #[derive(Default)]
 pub struct UIState {
-    port: Option<Box<dyn SerialPort>>,
+    camera: Option<Camera>,
     ports: Option<Vec<String>>,
     status: String,
 }
 
 impl UIState {
-    fn set_port(&mut self, path: Option<&str>) -> Result<()> {
+    fn set_camera(&mut self, path: Option<&str>) -> Result<()> {
         debug!("{path:?}");
 
-        // Drop the previous port implicitly before setting a new one
-        self.port = None;
+        // Drop the previous camera implicitly before setting a new one
+        self.camera = None;
 
         if let Some(path) = path {
-            self.port = Some(
-                serialport::new(path, 9000)
-                    .stop_bits(StopBits::One)
-                    .data_bits(DataBits::Eight)
-                    .flow_control(FlowControl::None)
-                    .parity(Parity::None)
-                    .open()?,
-            );
+            self.camera = Some(Camera::new(path)?);
         }
 
         Ok(())
@@ -42,14 +36,14 @@ impl UIState {
     pub fn initialize<R: tauri::Runtime>(&mut self, app: &tauri::AppHandle<R>) -> Result<()> {
         let store = app.store("config.json")?;
         if let Some(port_name) = store.get("port") {
-            if self.set_port(port_name.as_str()).is_err() {
+            if self.set_camera(port_name.as_str()).is_err() {
                 store.set("port", serde_json::Value::Null);
                 store.save()?;
             }
         }
         store.close_resource();
 
-        if self.port.is_some() {
+        if self.camera.is_some() {
             self.set_status("Connected")?;
         } else {
             self.set_status("Disconnected")?;
@@ -58,37 +52,30 @@ impl UIState {
         Ok(())
     }
 
-    pub fn port_name(&self) -> Option<String> {
-        self.port.as_ref().and_then(|port| port.name().clone())
+    pub fn camera(&mut self) -> Result<&mut Camera> {
+        let camera = self.camera.as_mut().ok_or(Error::NoPortSet)?;
+        Ok(camera)
     }
 
-    pub fn set_port_path<R: tauri::Runtime>(
+    pub fn set_camera_port<R: tauri::Runtime>(
         &mut self,
         app_handle: &tauri::AppHandle<R>,
         path: Option<&str>,
     ) -> Result<()> {
-        self.set_port(path)?;
+        self.set_camera(path)?;
 
         let store = app_handle.store("config.json")?;
         store.set("port", path);
         store.save()?;
         store.close_resource();
 
-        if self.port.is_some() {
+        if self.camera.is_some() {
             self.set_status("Connected")?;
         } else {
             self.set_status("Disconnected")?;
         }
 
         Ok(())
-    }
-
-    pub fn send_port_message(&mut self, message: Message) -> Result<()> {
-        if let Some(port) = self.port.as_mut() {
-            Ok(port.write_all(message.as_ref())?)
-        } else {
-            Err(Error::NoPortSet)
-        }
     }
 
     pub fn set_status(&mut self, status: &str) -> Result<()> {
@@ -115,9 +102,9 @@ pub struct UIStateEvent {
 }
 
 impl UIStateEvent {
-    pub fn new(state: &UIState) -> Self {
+    pub fn new(state: &mut UIState) -> Self {
         Self {
-            port: state.port_name(),
+            port: state.camera().ok().and_then(|camera| camera.name()),
             ports: state.ports.clone(),
             status: state.status.clone(),
         }
@@ -129,13 +116,13 @@ impl TryFrom<&tauri::AppHandle> for UIStateEvent {
 
     fn try_from(app_handle: &tauri::AppHandle) -> Result<Self> {
         let state = app_handle.state::<Mutex<UIState>>();
-        let state = state.lock().expect("mutext poisoned");
+        let mut state = state.lock().expect("mutext poisoned");
 
-        Ok(UIStateEvent::new(&state))
+        Ok(UIStateEvent::new(&mut state))
     }
 }
 
-pub fn with_ui_state<T, F>(app_handle: &tauri::AppHandle, func: F) -> Result<T>
+pub fn with_ui_state<T, F>(app_handle: &tauri::AppHandle, func: F)
 where
     F: FnOnce(&mut UIState) -> Result<T>,
 {
@@ -144,7 +131,20 @@ where
 
     let result = func(&mut state);
 
-    UIStateEvent::new(&state).emit(app_handle)?;
+    if let Err(error) = result {
+        let status = format!(r#"Error: {error}"#);
+        let _ = state.set_status(&status);
+    }
 
-    result
+    let _ = UIStateEvent::new(&mut state).emit(app_handle);
+}
+
+pub fn with_ui_state_status<T, F>(app_handle: &tauri::AppHandle, status: &str, func: F)
+where
+    F: FnOnce(&mut UIState) -> Result<T>,
+{
+    with_ui_state(app_handle, |ui| {
+        func(ui)?;
+        ui.set_status(status)
+    })
 }

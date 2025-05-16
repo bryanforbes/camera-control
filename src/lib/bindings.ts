@@ -10,32 +10,32 @@ export const commands = {
   async getState(): Promise<UIStateEvent> {
     return await TAURI_INVOKE('get_state');
   },
-  async setPort(portName: string | null): Promise<null> {
-    return await TAURI_INVOKE('set_port', { portName });
+  async setPort(portName: string | null): Promise<void> {
+    await TAURI_INVOKE('set_port', { portName });
   },
-  async cameraPower(power: boolean): Promise<null> {
-    return await TAURI_INVOKE('camera_power', { power });
+  async cameraPower(power: boolean): Promise<void> {
+    await TAURI_INVOKE('camera_power', { power });
   },
-  async autofocus(autofocus: boolean): Promise<null> {
-    return await TAURI_INVOKE('autofocus', { autofocus });
+  async autofocus(autofocus: boolean): Promise<void> {
+    await TAURI_INVOKE('autofocus', { autofocus });
   },
-  async goToPreset(preset: number, name: string): Promise<null> {
-    return await TAURI_INVOKE('go_to_preset', { preset, name });
+  async goToPreset(preset: number, name: string): Promise<void> {
+    await TAURI_INVOKE('go_to_preset', { preset, name });
   },
-  async setPreset(preset: number, name: string): Promise<null> {
-    return await TAURI_INVOKE('set_preset', { preset, name });
+  async setPreset(preset: number, name: string): Promise<void> {
+    await TAURI_INVOKE('set_preset', { preset, name });
   },
-  async moveCamera(direction: string): Promise<null> {
-    return await TAURI_INVOKE('move_camera', { direction });
+  async moveCamera(direction: string): Promise<void> {
+    await TAURI_INVOKE('move_camera', { direction });
   },
-  async stopMove(): Promise<null> {
-    return await TAURI_INVOKE('stop_move');
+  async stopMove(): Promise<void> {
+    await TAURI_INVOKE('stop_move');
   },
-  async zoom(direction: string): Promise<null> {
-    return await TAURI_INVOKE('zoom', { direction });
+  async zoom(direction: string): Promise<void> {
+    await TAURI_INVOKE('zoom', { direction });
   },
-  async stopZoom(): Promise<null> {
-    return await TAURI_INVOKE('stop_zoom');
+  async stopZoom(): Promise<void> {
+    await TAURI_INVOKE('stop_zoom');
   },
   async getPorts(): Promise<string[]> {
     return await TAURI_INVOKE('get_ports');

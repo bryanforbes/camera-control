@@ -15,7 +15,7 @@ use std::{io, process::Command};
 use crate::error::Result;
 
 use log::debug;
-use pelcodrs::{AutoCtrl, Direction, Message, MessageBuilder, Speed};
+use pelcodrs::{AutoCtrl, Direction};
 use tauri::{
     Manager, WindowEvent,
     menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
@@ -23,7 +23,7 @@ use tauri::{
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 use tauri_plugin_window_state::StateFlags;
-use ui_state::{UIState, UIStateEvent, with_ui_state};
+use ui_state::{UIState, UIStateEvent, with_ui_state, with_ui_state_status};
 
 fn open_settings_window(app_handle: &tauri::AppHandle) -> Result<()> {
     if let Some(window) = app_handle.get_webview_window("settings") {
@@ -45,7 +45,7 @@ fn open_settings_window(app_handle: &tauri::AppHandle) -> Result<()> {
 #[tauri::command]
 #[specta::specta]
 async fn open_settings(app_handle: tauri::AppHandle) -> Result<()> {
-    with_ui_state(&app_handle, |ui| ui.refresh_ports())?;
+    with_ui_state(&app_handle, |ui| ui.refresh_ports());
     open_settings_window(&app_handle)
 }
 
@@ -57,129 +57,116 @@ fn get_state(app_handle: tauri::AppHandle) -> Result<UIStateEvent> {
 
 #[tauri::command]
 #[specta::specta]
-fn set_port(app_handle: tauri::AppHandle, port_name: Option<&str>) -> Result<()> {
+fn set_port(app_handle: tauri::AppHandle, port_name: Option<&str>) {
     debug!("Port name: {port_name:?}");
 
-    with_ui_state(&app_handle, |ui| ui.set_port_path(&app_handle, port_name))
+    with_ui_state(&app_handle, |ui| ui.set_camera_port(&app_handle, port_name))
 }
 
 #[tauri::command]
 #[specta::specta]
-fn camera_power(app_handle: tauri::AppHandle, power: bool) -> Result<()> {
+fn camera_power(app_handle: tauri::AppHandle, power: bool) {
     debug!("Power: {:?}", power);
 
-    let mut builder = MessageBuilder::new(1);
+    with_ui_state_status(
+        &app_handle,
+        if power { "Power on" } else { "Power off" },
+        |ui| {
+            let camera = ui.camera()?;
 
-    if power {
-        builder = *builder.camera_on();
-    } else {
-        builder = *builder.camera_off();
-    }
-
-    with_ui_state(&app_handle, |ui| ui.send_port_message(builder.finalize()?))
+            if power {
+                camera.power_on()
+            } else {
+                camera.power_off()
+            }
+        },
+    )
 }
 
 #[tauri::command]
 #[specta::specta]
-fn autofocus(app_handle: tauri::AppHandle, autofocus: bool) -> Result<()> {
-    with_ui_state(&app_handle, |ui| {
-        ui.send_port_message(Message::auto_focus(
-            1,
-            if autofocus {
+fn autofocus(app_handle: tauri::AppHandle, autofocus: bool) {
+    with_ui_state_status(
+        &app_handle,
+        if autofocus {
+            "Autofocus on"
+        } else {
+            "Autofocus off"
+        },
+        |ui| {
+            ui.camera()?.autofocus(if autofocus {
                 AutoCtrl::Auto
             } else {
                 AutoCtrl::Off
-            },
-        )?)
-    })
+            })
+        },
+    )
 }
 
 #[tauri::command]
 #[specta::specta]
-fn go_to_preset(app_handle: tauri::AppHandle, preset: u8, name: &str) -> Result<()> {
+fn go_to_preset(app_handle: tauri::AppHandle, preset: u8, name: &str) {
     debug!("Go To Preset: {}", preset);
 
-    with_ui_state(&app_handle, |ui| {
-        ui.send_port_message(Message::go_to_preset(1, preset)?)?;
-        ui.set_status(name)
-    })
+    with_ui_state_status(&app_handle, name, |ui| ui.camera()?.go_to_preset(preset));
 }
 
 #[tauri::command]
 #[specta::specta]
-fn set_preset(app_handle: tauri::AppHandle, preset: u8, name: &str) -> Result<()> {
+fn set_preset(app_handle: tauri::AppHandle, preset: u8, name: &str) {
     debug!("Set Preset: {}", preset);
 
-    with_ui_state(&app_handle, |ui| {
-        ui.send_port_message(Message::set_preset(1, preset)?)?;
-        let status = format!("Set {name}");
-        ui.set_status(&status)
-    })
+    let status = format!("Set {name}");
+    with_ui_state_status(&app_handle, &status, |ui| ui.camera()?.set_preset(preset));
 }
 
 #[tauri::command]
 #[specta::specta]
-fn move_camera(app_handle: tauri::AppHandle, direction: &str) -> Result<()> {
+fn move_camera(app_handle: tauri::AppHandle, direction: &str) {
     debug!("Direction: {}", direction);
 
-    with_ui_state(&app_handle, |ui| {
-        ui.send_port_message(
-            MessageBuilder::new(1)
-                .pan(Speed::Range(0.01))
-                .tilt(Speed::Range(0.01))
-                .direction(match direction {
-                    "left" => Direction::LEFT,
-                    "up" => Direction::UP,
-                    "right" => Direction::RIGHT,
-                    &_ => Direction::DOWN,
-                })
-                .finalize()?,
-        )?;
-        let status = format!("Moving {direction}");
-        ui.set_status(&status)
+    let status = format!("Moving {direction}");
+    with_ui_state_status(&app_handle, &status, |ui| {
+        ui.camera()?.r#move(match direction {
+            "left" => Direction::LEFT,
+            "up" => Direction::UP,
+            "right" => Direction::RIGHT,
+            &_ => Direction::DOWN,
+        })
     })
 }
 
 #[tauri::command]
 #[specta::specta]
-fn stop_move(app_handle: tauri::AppHandle) -> Result<()> {
+fn stop_move(app_handle: tauri::AppHandle) {
     debug!("Stop Move");
 
-    with_ui_state(&app_handle, |ui| {
-        ui.send_port_message(MessageBuilder::new(1).stop().finalize()?)?;
-        ui.set_status("Done moving")
-    })
+    with_ui_state_status(&app_handle, "Done moving", |ui| ui.camera()?.stop())
 }
 
 #[tauri::command]
 #[specta::specta]
-fn zoom(app_handle: tauri::AppHandle, direction: &str) -> Result<()> {
+fn zoom(app_handle: tauri::AppHandle, direction: &str) {
     debug!("Zoom: {}", direction);
 
-    let mut builder = MessageBuilder::new(1);
+    let status = format!("Zooming {direction}");
+    with_ui_state_status(&app_handle, &status, |ui| {
+        let camera = ui.camera()?;
 
-    if direction == "in" {
-        builder = *builder.zoom_in();
-    } else {
-        builder = *builder.zoom_out();
-    }
-
-    with_ui_state(&app_handle, |ui| {
-        ui.send_port_message(builder.finalize()?)?;
-        let status = format!("Zooming {direction}");
-        ui.set_status(&status)
-    })
+        if direction == "in" {
+            camera.zoom_in()
+        } else {
+            camera.zoom_out()
+        }
+    });
 }
 
 #[tauri::command]
 #[specta::specta]
-fn stop_zoom(app_handle: tauri::AppHandle) -> Result<()> {
+fn stop_zoom(app_handle: tauri::AppHandle) {
     debug!("Stop Zoom");
 
-    with_ui_state(&app_handle, |ui| {
-        ui.send_port_message(MessageBuilder::new(1).stop().finalize()?)?;
-        ui.set_status("Done zooming")
-    })
+    with_ui_state_status(&app_handle, "Done zooming", |ui| ui.camera()?.stop());
 }
 
 #[tauri::command]
@@ -283,7 +270,7 @@ fn main() {
         .setup(move |app| {
             specta_builder.mount_events(app);
 
-            with_ui_state(app.app_handle(), |ui| ui.initialize(app.handle()))?;
+            with_ui_state(app.app_handle(), |ui| ui.initialize(app.handle()));
 
             #[cfg(target_os = "macos")]
             {
