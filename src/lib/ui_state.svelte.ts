@@ -1,21 +1,22 @@
 import { commands, events, type UIStateEvent } from './bindings';
 
-const _ui_state: UIStateEvent = $state({
+export interface ReadonlyUIStateEvent extends Readonly<Omit<UIStateEvent, 'ports'>> {
+  readonly ports: readonly string[] | null;
+}
+
+const state: UIStateEvent = $state({
   port: null,
   ports: null,
   status: 'Disconnected',
 });
 
-void commands.getState().then(({ port, ports, status }) => {
-  _ui_state.port = port;
-  _ui_state.ports = ports;
-  _ui_state.status = status;
-});
+function set({ port, ports, status }: UIStateEvent) {
+  state.port = port;
+  state.ports = ports;
+  state.status = status;
+}
 
-void events.uiStateEvent.listen(({ payload: { port, ports, status } }) => {
-  _ui_state.port = port;
-  _ui_state.ports = ports;
-  _ui_state.status = status;
-});
+void commands.getState().then(set);
+void events.uiStateEvent.listen((event) => set(event.payload));
 
-export const ui_state: Readonly<UIStateEvent> = _ui_state;
+export const ui_state: ReadonlyUIStateEvent = state;
