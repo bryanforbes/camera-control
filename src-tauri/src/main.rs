@@ -6,6 +6,7 @@ extern crate pretty_env_logger;
 
 mod camera;
 mod error;
+mod pelco_camera;
 mod ui_state;
 
 use std::sync::Mutex;
@@ -14,8 +15,8 @@ use std::{io, process::Command};
 
 use crate::error::Result;
 
+use camera::Direction;
 use log::debug;
-use pelcodrs::{AutoCtrl, Direction};
 use tauri::{
     Manager, WindowEvent,
     menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
@@ -93,13 +94,7 @@ fn autofocus(app_handle: tauri::AppHandle, autofocus: bool) {
         } else {
             "Autofocus off"
         },
-        |ui| {
-            ui.camera()?.autofocus(if autofocus {
-                AutoCtrl::Auto
-            } else {
-                AutoCtrl::Off
-            })
-        },
+        |ui| ui.camera()?.autofocus(autofocus),
     )
 }
 
@@ -127,11 +122,11 @@ fn move_camera(app_handle: tauri::AppHandle, direction: &str) {
 
     let status = format!("Moving {direction}");
     with_ui_state_status(&app_handle, &status, |ui| {
-        ui.camera()?.r#move(match direction {
-            "left" => Direction::LEFT,
-            "up" => Direction::UP,
-            "right" => Direction::RIGHT,
-            &_ => Direction::DOWN,
+        ui.camera()?.pan_tilt(match direction {
+            "left" => Direction::Left,
+            "up" => Direction::Up,
+            "right" => Direction::Right,
+            &_ => Direction::Down,
         })
     })
 }

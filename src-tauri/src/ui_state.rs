@@ -10,11 +10,12 @@ use tauri_specta::Event;
 use crate::{
     camera::Camera,
     error::{Error, Result},
+    pelco_camera::PelcoCamera,
 };
 
 #[derive(Default)]
 pub struct UIState {
-    camera: Option<Camera>,
+    camera: Option<Box<dyn Camera>>,
     ports: Option<Vec<String>>,
     status: String,
 }
@@ -27,7 +28,7 @@ impl UIState {
         self.camera = None;
 
         if let Some(path) = path {
-            self.camera = Some(Camera::new(path)?);
+            self.camera = Some(Box::new(PelcoCamera::new(path)?));
         }
 
         Ok(())
@@ -52,9 +53,9 @@ impl UIState {
         Ok(())
     }
 
-    pub fn camera(&mut self) -> Result<&mut Camera> {
+    pub fn camera(&mut self) -> Result<&mut dyn Camera> {
         let camera = self.camera.as_mut().ok_or(Error::NoPortSet)?;
-        Ok(camera)
+        Ok(camera.as_mut())
     }
 
     pub fn set_camera_port<R: tauri::Runtime>(
