@@ -1,7 +1,7 @@
 use thiserror::Error as ThisError;
 
 #[derive(ThisError, Debug)]
-pub enum Error {
+pub enum ViscaError {
     #[error("invalid power value")]
     InvalidPowerValue,
 
@@ -49,9 +49,12 @@ pub enum Error {
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
+
+    #[error(transparent)]
+    Deku(#[from] deku::DekuError),
 }
 
-impl serde::Serialize for Error {
+impl serde::Serialize for ViscaError {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -60,7 +63,7 @@ impl serde::Serialize for Error {
     }
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, ViscaError>;
 
 #[cfg(test)]
 mod tests {
@@ -69,7 +72,7 @@ mod tests {
     #[test]
     fn test_error_serialize() {
         assert_eq!(
-            serde_json::to_string(&Error::InvalidAddress).unwrap(),
+            serde_json::to_string(&ViscaError::InvalidAddress).unwrap(),
             "\"invalid address\""
         );
     }

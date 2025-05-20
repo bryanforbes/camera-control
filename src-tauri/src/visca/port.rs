@@ -1,14 +1,19 @@
 use std::io::{BufRead, BufReader, ErrorKind, Write};
 
+use deku::{DekuContainerRead, DekuContainerWrite};
+use log::debug;
 use serialport::SerialPort;
 
-use super::{Action, Error, Inquiry, Response, ResponseKind, Result};
+use super::{
+    InquiryRequestBuilder, Request, Response, ResponseKind, Result, ViscaAction, ViscaError,
+    ViscaInquiry,
+};
 
 fn header_for_address(address: u8) -> Result<u8> {
     if address <= 7 {
         Ok(0x80 | address)
     } else {
-        Err(Error::InvalidAddress)
+        Err(ViscaError::InvalidAddress)
     }
 }
 
@@ -25,14 +30,8 @@ impl ViscaPort {
         }
     }
 
-    fn send_packet_with_response(&mut self, address: u8, bytes: Vec<u8>) -> Result<Response> {
-        let address = header_for_address(address)?;
-
-        let mut output: Vec<u8> = Vec::with_capacity(16);
-
-        output.push(address);
-        output.extend(bytes);
-        output.push(0xFF);
+    fn send_packet_with_response(&mut self, address: u8, request: &Request) -> Result<Response> {
+        let output: Vec<u8> = request.to_bytes()?;
 
         #[cfg(debug_assertions)]
         {
@@ -42,15 +41,15 @@ impl ViscaPort {
         self.writer.write_all(&output)?;
 
         let response = self.receive_response()?;
-        if let ResponseKind::Completion = response.kind() {
+        if let ResponseKind::Completion(_) = response.kind() {
             return Ok(response);
         }
 
         let response = self.receive_response()?;
-        if let ResponseKind::Completion = response.kind() {
+        if let ResponseKind::Completion(_) = response.kind() {
             Ok(response)
         } else {
-            Err(Error::InvalidResponse)
+            Err(ViscaError::InvalidResponse)
         }
     }
 
@@ -62,29 +61,29 @@ impl ViscaPort {
                     #[cfg(debug_assertions)]
                     debug!("Received: {:02X?}", bytes.to_vec());
 
-                    return bytes.try_into();
+                    let ((_, _), response) = Response::from_bytes((bytes.as_ref(), 0))?;
+                    return Ok(response);
                 }
                 Err(error) if error.kind() == ErrorKind::Interrupted => continue,
-                Err(error) => return Err(Error::Io(error)),
+                Err(error) => return Err(ViscaError::Io(error)),
             }
         }
     }
 
-    pub fn execute(&mut self, address: u8, action: impl Action) -> Result<()> {
-        let response = self.send_packet_with_response(address, action.to_bytes()?)?;
+    pub fn execute(&mut self, address: u8, action: impl ViscaAction) -> Result<()> {
+        let request = action.action(address).build()?;
+        let response = self.send_packet_with_response(address, &request)?;
 
-        if response.payload().is_empty() {
+        if response.data().is_empty() {
             Ok(())
         } else {
-            Err(Error::InvalidResponse)
+            Err(ViscaError::InvalidResponse)
         }
     }
 
-    pub fn inquire<R>(&mut self, address: u8) -> Result<R>
-    where
-        R: Inquiry,
-    {
-        let response = self.send_packet_with_response(address, R::to_bytes())?;
-        R::from_response_payload(response.payload())
+    pub fn inquire<R: ViscaInquiry>(&mut self, address: u8) -> Result<R> {
+        let request = InquiryRequestBuilder::new(address).build::<R>()?;
+        let response = self.send_packet_with_response(address, &request)?;
+        R::from_response(&response)
     }
 }

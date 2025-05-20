@@ -1,10 +1,13 @@
-use super::{Error, Result};
+use super::{
+    Result, ViscaError,
+    packet::{RequestCategory, Response, ViscaAction, ViscaCommand, ViscaInquiry},
+};
 
 fn validate_speed(speed: u8, max: u8) -> Result<u8> {
     if speed > 0 && speed <= max {
         Ok(speed)
     } else {
-        Err(Error::InvalidSpeed)
+        Err(ViscaError::InvalidSpeed)
     }
 }
 
@@ -12,32 +15,7 @@ fn validate_preset(preset: u8) -> Result<u8> {
     if preset <= 0x0F {
         Ok(preset)
     } else {
-        Err(Error::InvalidPreset)
-    }
-}
-
-pub trait Command {
-    const COMMAND_CATEGORY: u8 = 0x04;
-    const COMMAND_ID: u8;
-}
-
-pub trait Action: Command {
-    fn data(&self) -> Result<Vec<u8>>;
-
-    fn to_bytes(&self) -> Result<Vec<u8>> {
-        let mut bytes: Vec<u8> = vec![0x01, Self::COMMAND_CATEGORY, Self::COMMAND_ID];
-
-        bytes.extend(self.data()?);
-
-        Ok(bytes)
-    }
-}
-
-pub trait Inquiry: Command + Sized {
-    fn from_response_payload(payload: &[u8]) -> Result<Self>;
-
-    fn to_bytes() -> Vec<u8> {
-        vec![0x09, Self::COMMAND_CATEGORY, Self::COMMAND_ID]
+        Err(ViscaError::InvalidPreset)
     }
 }
 
@@ -47,22 +25,23 @@ pub enum Power {
     Off = 0x03,
 }
 
-impl Command for Power {
-    const COMMAND_ID: u8 = 0x00;
+impl ViscaCommand for Power {
+    const ID: u8 = 0x00;
+    const CATEGORY: RequestCategory = RequestCategory::Camera;
 }
 
-impl Action for Power {
-    fn data(&self) -> Result<Vec<u8>> {
+impl ViscaAction for Power {
+    fn visca_action_data(&self) -> Result<Vec<u8>> {
         Ok(vec![*self as u8])
     }
 }
 
-impl Inquiry for Power {
-    fn from_response_payload(payload: &[u8]) -> Result<Self> {
-        match payload[0] & 0x0F {
+impl ViscaInquiry for Power {
+    fn from_response(response: &Response) -> Result<Self> {
+        match response.data()[0] & 0x0F {
             0x02 => Ok(Self::On),
             0x03 => Ok(Self::Off),
-            _ => Err(Error::InvalidPowerValue),
+            _ => Err(ViscaError::InvalidPowerValue),
         }
     }
 }
@@ -89,25 +68,26 @@ pub enum Zoom {
     Stop = 0x00,
 }
 
-impl Command for Zoom {
-    const COMMAND_ID: u8 = 0x07;
+impl ViscaCommand for Zoom {
+    const ID: u8 = 0x07;
+    const CATEGORY: RequestCategory = RequestCategory::Camera;
 }
 
-impl Action for Zoom {
-    fn data(&self) -> Result<Vec<u8>> {
-        Ok(vec![(*self).into()])
+impl ViscaAction for Zoom {
+    fn visca_action_data(&self) -> Result<Vec<u8>> {
+        Ok(vec![*self as u8])
     }
 }
 
 impl TryFrom<&str> for Zoom {
-    type Error = Error;
+    type Error = ViscaError;
 
     fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
         match value {
             "in" => Ok(Self::Tele),
             "out" => Ok(Self::Wide),
             "stop" => Ok(Self::Stop),
-            _ => Err(Error::InvalidZoomValue),
+            _ => Err(Self::Error::InvalidZoomValue),
         }
     }
 }
@@ -124,22 +104,23 @@ pub enum Autofocus {
     Manual = 0x03,
 }
 
-impl Command for Autofocus {
-    const COMMAND_ID: u8 = 0x38;
+impl ViscaCommand for Autofocus {
+    const ID: u8 = 0x38;
+    const CATEGORY: RequestCategory = RequestCategory::Camera;
 }
 
-impl Action for Autofocus {
-    fn data(&self) -> Result<Vec<u8>> {
+impl ViscaAction for Autofocus {
+    fn visca_action_data(&self) -> Result<Vec<u8>> {
         Ok(vec![*self as u8])
     }
 }
 
-impl Inquiry for Autofocus {
-    fn from_response_payload(payload: &[u8]) -> Result<Self> {
-        match payload[0] & 0x0F {
+impl ViscaInquiry for Autofocus {
+    fn from_response(response: &Response) -> Result<Self> {
+        match response.data()[0] & 0x0F {
             0x02 => Ok(Self::Auto),
             0x03 => Ok(Self::Manual),
-            _ => Err(Error::InvalidAutofocusValue),
+            _ => Err(ViscaError::InvalidAutofocusValue),
         }
     }
 }
@@ -170,25 +151,26 @@ pub enum Focus {
     Near = 0x03,
 }
 
-impl Command for Focus {
-    const COMMAND_ID: u8 = 0x08;
+impl ViscaCommand for Focus {
+    const ID: u8 = 0x08;
+    const CATEGORY: RequestCategory = RequestCategory::Camera;
 }
 
-impl Action for Focus {
-    fn data(&self) -> Result<Vec<u8>> {
+impl ViscaAction for Focus {
+    fn visca_action_data(&self) -> Result<Vec<u8>> {
         Ok(vec![*self as u8])
     }
 }
 
 impl TryFrom<&str> for Focus {
-    type Error = Error;
+    type Error = ViscaError;
 
     fn try_from(value: &str) -> Result<Self> {
         match value {
             "far" => Ok(Self::Far),
             "near" => Ok(Self::Near),
             "stop" => Ok(Self::Stop),
-            _ => Err(Error::InvalidFocusValue),
+            _ => Err(Self::Error::InvalidFocusValue),
         }
     }
 }
@@ -199,12 +181,13 @@ pub enum Preset {
     Recall(u8),
 }
 
-impl Command for Preset {
-    const COMMAND_ID: u8 = 0x3F;
+impl ViscaCommand for Preset {
+    const ID: u8 = 0x3F;
+    const CATEGORY: RequestCategory = RequestCategory::Camera;
 }
 
-impl Action for Preset {
-    fn data(&self) -> Result<Vec<u8>> {
+impl ViscaAction for Preset {
+    fn visca_action_data(&self) -> Result<Vec<u8>> {
         Ok(vec![
             match *self {
                 Self::Set(_) => 0x01,
@@ -225,13 +208,13 @@ pub enum Move {
     Stop,
 }
 
-impl Command for Move {
-    const COMMAND_CATEGORY: u8 = 0x06;
-    const COMMAND_ID: u8 = 0x01;
+impl ViscaCommand for Move {
+    const ID: u8 = 0x01;
+    const CATEGORY: RequestCategory = RequestCategory::PanTilt;
 }
 
-impl Action for Move {
-    fn data(&self) -> Result<Vec<u8>> {
+impl ViscaAction for Move {
+    fn visca_action_data(&self) -> Result<Vec<u8>> {
         Ok(vec![
             match *self {
                 Self::Left(speed) | Self::Right(speed) => validate_speed(speed, 0x18)?,
@@ -259,6 +242,8 @@ impl Action for Move {
 mod tests {
     use super::*;
 
+    use crate::visca::InquiryRequestBuilder;
+    use deku::{DekuContainerRead, DekuContainerWrite};
     use test_case::test_case;
 
     fn matches_bytes(expected: &'static [u8]) -> impl Fn(Result<Vec<u8>>) {
@@ -268,22 +253,28 @@ mod tests {
         }
     }
 
-    #[test_case(Power::On => using matches_bytes(b"\x01\x04\x00\x02"); "on")]
-    #[test_case(Power::Off => using matches_bytes(b"\x01\x04\x00\x03"); "off")]
+    #[test_case(Power::On => using matches_bytes(b"\x81\x01\x04\x00\x02\xFF"); "on")]
+    #[test_case(Power::Off => using matches_bytes(b"\x81\x01\x04\x00\x03\xFF"); "off")]
     fn test_power_to_bytes(command: Power) -> Result<Vec<u8>> {
-        command.to_bytes()
+        let bytes = command.action(1).build()?.to_bytes()?;
+        Ok(bytes)
     }
 
     #[test]
-    fn test_power_inquiry_to_bytes() {
-        assert_eq!(<Power as Inquiry>::to_bytes(), b"\x09\x04\x00".to_vec());
+    fn test_power_inquiry_to_bytes() -> Result<()> {
+        assert_eq!(
+            InquiryRequestBuilder::new(1).build::<Power>()?.to_bytes(),
+            Ok(b"\x81\x09\x04\x00\xFF".into())
+        );
+        Ok(())
     }
 
-    #[test_case(b"\x02" => matches Ok(Power::On); "on")]
-    #[test_case(b"\x03" => matches Ok(Power::Off); "off")]
-    #[test_case(b"\x00" => matches Err(Error::InvalidPowerValue); "invalid power value")]
+    #[test_case(b"\x90\x50\x02\xFF" => matches Ok(Power::On); "on")]
+    #[test_case(b"\x90\x50\x03\xFF" => matches Ok(Power::Off); "off")]
+    #[test_case(b"\x90\x50\x00\xFF" => matches Err(ViscaError::InvalidPowerValue); "invalid power value")]
     fn test_power_inquiry_from_response_payload(payload: &'static [u8]) -> Result<Power> {
-        Power::from_response_payload(payload)
+        let (_, response) = Response::from_bytes((payload, 0))?;
+        Power::from_response(&response)
     }
 
     #[test_case(true => matches Power::On; "on")]
@@ -298,40 +289,49 @@ mod tests {
         power.into()
     }
 
-    #[test_case(Zoom::Stop => using matches_bytes(b"\x01\x04\x07\x00"); "stop")]
-    #[test_case(Zoom::Tele => using matches_bytes(b"\x01\x04\x07\x02"); "tele")]
-    #[test_case(Zoom::Wide => using matches_bytes(b"\x01\x04\x07\x03"); "wide")]
+    #[test_case(Zoom::Stop => using matches_bytes(b"\x81\x01\x04\x07\x00\xFF"); "stop")]
+    #[test_case(Zoom::Tele => using matches_bytes(b"\x81\x01\x04\x07\x02\xFF"); "tele")]
+    #[test_case(Zoom::Wide => using matches_bytes(b"\x81\x01\x04\x07\x03\xFF"); "wide")]
     fn test_zoom_to_bytes(command: Zoom) -> Result<Vec<u8>> {
-        command.to_bytes()
+        let bytes = command.action(1).build()?.to_bytes()?;
+        Ok(bytes)
     }
 
     #[test_case("in" => matches Ok(Zoom::Tele); "in => Tele")]
     #[test_case("out" => matches Ok(Zoom::Wide); "out => Wide")]
     #[test_case("stop" => matches Ok(Zoom::Stop); "stop => Stop")]
-    #[test_case("anything else" => matches Err(Error::InvalidZoomValue); "invalid zoom value")]
+    #[test_case("anything else" => matches Err(ViscaError::InvalidZoomValue); "invalid zoom value")]
     fn test_zoom_try_from(value: &str) -> Result<Zoom> {
         Zoom::try_from(value)
     }
 
-    #[test_case(Autofocus::Auto => using matches_bytes(b"\x01\x04\x38\x02"); "auto")]
-    #[test_case(Autofocus::Manual => using matches_bytes(b"\x01\x04\x38\x03"); "manual")]
+    #[test_case(Autofocus::Auto => using matches_bytes(b"\x81\x01\x04\x38\x02\xFF"); "auto")]
+    #[test_case(Autofocus::Manual => using matches_bytes(b"\x81\x01\x04\x38\x03\xFF"); "manual")]
     fn test_autofocus_to_bytes(autofocus: Autofocus) -> Result<Vec<u8>> {
-        autofocus.to_bytes()
+        let bytes = autofocus.action(1).build()?.to_bytes()?;
+        Ok(bytes)
     }
 
     #[test]
-    fn test_autofocus_inquiry_to_bytes() {
-        assert_eq!(<Autofocus as Inquiry>::to_bytes(), b"\x09\x04\x38".to_vec());
+    fn test_autofocus_inquiry_to_bytes() -> Result<()> {
+        assert_eq!(
+            InquiryRequestBuilder::new(1)
+                .build::<Autofocus>()?
+                .to_bytes(),
+            Ok(b"\x81\x09\x04\x38\xFF".into())
+        );
+        Ok(())
     }
 
-    #[test_case(b"\x02" => matches Ok(Autofocus::Auto); "auto")]
-    #[test_case(b"\x03" => matches Ok(Autofocus::Manual); "manual")]
+    #[test_case(b"\x90\x50\x02\xFF" => matches Ok(Autofocus::Auto); "auto")]
+    #[test_case(b"\x90\x50\x03\xFF" => matches Ok(Autofocus::Manual); "manual")]
     #[test_case(
-        b"\x00" => matches Err(Error::InvalidAutofocusValue);
+        b"\x90\x50\x00\xFF" => matches Err(ViscaError::InvalidAutofocusValue);
         "invalid autofocus value"
     )]
     fn test_autofocus_from_response_payload(payload: &'static [u8]) -> Result<Autofocus> {
-        Autofocus::from_response_payload(payload)
+        let (_, response) = Response::from_bytes((payload, 0))?;
+        Autofocus::from_response(&response)
     }
 
     #[test_case(true => matches Autofocus::Auto; "auto")]
@@ -346,49 +346,52 @@ mod tests {
         value.into()
     }
 
-    #[test_case(Focus::Stop => using matches_bytes(b"\x01\x04\x08\x00"); "stop")]
-    #[test_case(Focus::Far => using matches_bytes(b"\x01\x04\x08\x02"); "far")]
-    #[test_case(Focus::Near => using matches_bytes(b"\x01\x04\x08\x03"); "near")]
+    #[test_case(Focus::Stop => using matches_bytes(b"\x81\x01\x04\x08\x00\xFF"); "stop")]
+    #[test_case(Focus::Far => using matches_bytes(b"\x81\x01\x04\x08\x02\xFF"); "far")]
+    #[test_case(Focus::Near => using matches_bytes(b"\x81\x01\x04\x08\x03\xFF"); "near")]
     fn test_focus_to_bytes(focus: Focus) -> Result<Vec<u8>> {
-        focus.to_bytes()
+        let bytes = focus.action(1).build()?.to_bytes()?;
+        Ok(bytes)
     }
 
     #[test_case("far" => matches Ok(Focus::Far); "far")]
     #[test_case("near" => matches Ok(Focus::Near); "near")]
     #[test_case("stop" => matches Ok(Focus::Stop); "stop")]
-    #[test_case("anything else" => matches Err(Error::InvalidFocusValue); "invalid focus value")]
+    #[test_case("anything else" => matches Err(ViscaError::InvalidFocusValue); "invalid focus value")]
     fn test_focus_try_from(value: &str) -> Result<Focus> {
         Focus::try_from(value)
     }
 
-    #[test_case(Preset::Set(3) => using matches_bytes(b"\x01\x04\x3F\x01\x03"); "set 3")]
-    #[test_case(Preset::Set(4) => using matches_bytes(b"\x01\x04\x3F\x01\x04"); "set 4")]
-    #[test_case(Preset::Set(0x10) => matches Err(Error::InvalidPreset); "set invalid preset")]
-    #[test_case(Preset::Recall(3) => using matches_bytes(b"\x01\x04\x3F\x02\x03"); "recall 3")]
-    #[test_case(Preset::Recall(4) => using matches_bytes(b"\x01\x04\x3F\x02\x04"); "recall 4")]
-    #[test_case(Preset::Recall(0x10) => matches Err(Error::InvalidPreset); "recall invalid preset")]
+    #[test_case(Preset::Set(3) => using matches_bytes(b"\x81\x01\x04\x3F\x01\x03\xFF"); "set 3")]
+    #[test_case(Preset::Set(4) => using matches_bytes(b"\x81\x01\x04\x3F\x01\x04\xFF"); "set 4")]
+    #[test_case(Preset::Set(0x10) => matches Err(ViscaError::InvalidPreset); "set invalid preset")]
+    #[test_case(Preset::Recall(3) => using matches_bytes(b"\x81\x01\x04\x3F\x02\x03\xFF"); "recall 3")]
+    #[test_case(Preset::Recall(4) => using matches_bytes(b"\x81\x01\x04\x3F\x02\x04\xFF"); "recall 4")]
+    #[test_case(Preset::Recall(0x10) => matches Err(ViscaError::InvalidPreset); "recall invalid preset")]
     fn test_preset_to_bytes(preset: Preset) -> Result<Vec<u8>> {
-        preset.to_bytes()
+        let bytes = preset.action(1).build()?.to_bytes()?;
+        Ok(bytes)
     }
 
-    #[test_case(Move::Up(0x01) => using matches_bytes(b"\x01\x06\x01\x00\x01\x03\x01"); "up 1")]
-    #[test_case(Move::Up(0x14) => using matches_bytes(b"\x01\x06\x01\x00\x14\x03\x01"); "up 20")]
-    #[test_case(Move::Up(0x00) => matches Err(Error::InvalidSpeed); "up invalid speed low")]
-    #[test_case(Move::Up(0x15) => matches Err(Error::InvalidSpeed); "up invalid speed high")]
-    #[test_case(Move::Down(0x01) => using matches_bytes(b"\x01\x06\x01\x00\x01\x03\x02"); "down 1")]
-    #[test_case(Move::Down(0x14) => using matches_bytes(b"\x01\x06\x01\x00\x14\x03\x02"); "down 20")]
-    #[test_case(Move::Down(0x00) => matches Err(Error::InvalidSpeed); "down invalid speed low")]
-    #[test_case(Move::Down(0x15) => matches Err(Error::InvalidSpeed); "down invalid speed high")]
-    #[test_case(Move::Left(0x01) => using matches_bytes(b"\x01\x06\x01\x01\x00\x01\x03"); "left 1")]
-    #[test_case(Move::Left(0x18) => using matches_bytes(b"\x01\x06\x01\x18\x00\x01\x03"); "left 24")]
-    #[test_case(Move::Left(0x00) => matches Err(Error::InvalidSpeed); "left invalid speed low")]
-    #[test_case(Move::Left(0x19) => matches Err(Error::InvalidSpeed); "left invalid speed high")]
-    #[test_case(Move::Right(0x01) => using matches_bytes(b"\x01\x06\x01\x01\x00\x02\x03"); "right 1")]
-    #[test_case(Move::Right(0x18) => using matches_bytes(b"\x01\x06\x01\x18\x00\x02\x03"); "right 24")]
-    #[test_case(Move::Right(0x00) => matches Err(Error::InvalidSpeed); "right invalid speed low")]
-    #[test_case(Move::Right(0x19) => matches Err(Error::InvalidSpeed); "right invalid speed high")]
-    #[test_case(Move::Stop => using matches_bytes(b"\x01\x06\x01\x00\x00\x03\x03"); "stop")]
+    #[test_case(Move::Up(0x01) => using matches_bytes(b"\x81\x01\x06\x01\x00\x01\x03\x01\xFF"); "up 1")]
+    #[test_case(Move::Up(0x14) => using matches_bytes(b"\x81\x01\x06\x01\x00\x14\x03\x01\xFF"); "up 20")]
+    #[test_case(Move::Up(0x00) => matches Err(ViscaError::InvalidSpeed); "up invalid speed low")]
+    #[test_case(Move::Up(0x15) => matches Err(ViscaError::InvalidSpeed); "up invalid speed high")]
+    #[test_case(Move::Down(0x01) => using matches_bytes(b"\x81\x01\x06\x01\x00\x01\x03\x02\xFF"); "down 1")]
+    #[test_case(Move::Down(0x14) => using matches_bytes(b"\x81\x01\x06\x01\x00\x14\x03\x02\xFF"); "down 20")]
+    #[test_case(Move::Down(0x00) => matches Err(ViscaError::InvalidSpeed); "down invalid speed low")]
+    #[test_case(Move::Down(0x15) => matches Err(ViscaError::InvalidSpeed); "down invalid speed high")]
+    #[test_case(Move::Left(0x01) => using matches_bytes(b"\x81\x01\x06\x01\x01\x00\x01\x03\xFF"); "left 1")]
+    #[test_case(Move::Left(0x18) => using matches_bytes(b"\x81\x01\x06\x01\x18\x00\x01\x03\xFF"); "left 24")]
+    #[test_case(Move::Left(0x00) => matches Err(ViscaError::InvalidSpeed); "left invalid speed low")]
+    #[test_case(Move::Left(0x19) => matches Err(ViscaError::InvalidSpeed); "left invalid speed high")]
+    #[test_case(Move::Right(0x01) => using matches_bytes(b"\x81\x01\x06\x01\x01\x00\x02\x03\xFF"); "right 1")]
+    #[test_case(Move::Right(0x18) => using matches_bytes(b"\x81\x01\x06\x01\x18\x00\x02\x03\xFF"); "right 24")]
+    #[test_case(Move::Right(0x00) => matches Err(ViscaError::InvalidSpeed); "right invalid speed low")]
+    #[test_case(Move::Right(0x19) => matches Err(ViscaError::InvalidSpeed); "right invalid speed high")]
+    #[test_case(Move::Stop => using matches_bytes(b"\x81\x01\x06\x01\x00\x00\x03\x03\xFF"); "stop")]
     fn test_move_to_bytes(command: Move) -> Result<Vec<u8>> {
-        command.to_bytes()
+        let bytes = command.action(1).build()?.to_bytes()?;
+        Ok(bytes)
     }
 }

@@ -8,6 +8,8 @@ mod camera;
 mod error;
 mod pelco_camera;
 mod ui_state;
+#[cfg(feature = "visca")]
+mod visca;
 
 use std::sync::Mutex;
 
