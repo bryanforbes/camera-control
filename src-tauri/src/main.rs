@@ -13,8 +13,6 @@ mod visca;
 
 use std::sync::Mutex;
 
-use std::{io, process::Command};
-
 use crate::error::Result;
 
 use camera::Direction;
@@ -210,12 +208,12 @@ fn main() {
         let ts = specta_typescript::Typescript::default()
             .header("/* eslint-disable */ // @ts-nocheck")
             .formatter(|file| {
-                Command::new("../node_modules/.bin/prettier")
+                std::process::Command::new("../node_modules/.bin/prettier")
                     .arg("--write")
                     .arg(file)
                     .output()
                     .map(|_| ())
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                    .map_err(std::io::Error::other)
             });
 
         specta_builder
