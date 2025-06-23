@@ -51,7 +51,7 @@ opt-level = "z"    # Optimize for binary size
 strip = true       # Remove debug symbols
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-updater = "=2.7.1"
+tauri-plugin-updater = "=2.8.1"
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "=2.2.4"
