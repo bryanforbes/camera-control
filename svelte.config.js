@@ -14,5 +14,14 @@ const config = {
   kit: {
     adapter: adapter(),
   },
+
+  vitePlugin: {
+    dynamicCompileOptions: ({ filename, compileOptions }) => {
+      if (!filename.includes('/node_modules/') && !compileOptions.runes) {
+        return { ...compileOptions, runes: true };
+      }
+      return;
+    },
+  },
 };
 export default config;
