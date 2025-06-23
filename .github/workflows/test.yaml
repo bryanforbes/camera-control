@@ -15,9 +15,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-22.04, windows-latest]
+        platform: [macos-15, ubuntu-22.04, windows-latest]
         include:
-          - platform: macos-latest
+          - platform: macos-15
             rust-targets: 'aarch64-apple-darwin, x86_64-apple-darwin'
             tauri-args: '--target universal-apple-darwin'
 
