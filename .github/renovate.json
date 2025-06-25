@@ -40,6 +40,24 @@
         "@types/eslint-{/,}**",
         "prettier-plugin{/,}**"
       ]
+    },
+    {
+      "groupName": "tauri dependencies",
+      "matchManagers": ["npm", "cargo"],
+      "matchDepTypes": [
+        "dependencies",
+        "devDependencie",
+        "dev-dependencies",
+        "build-dependencies"
+      ],
+      "matchPackageNames": [
+        "@tauri-apps/**",
+        "tauri",
+        "tauri-build",
+        "/^tauri-plugin-/",
+        "!tauri-specta",
+        "!tauri-plugin-prevent-default"
+      ]
     }
   ],
   "lockFileMaintenance": {
