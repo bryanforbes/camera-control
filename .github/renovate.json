@@ -43,7 +43,6 @@
     },
     {
       "groupName": "tauri dependencies",
-      "matchManagers": ["npm", "cargo"],
       "matchDepTypes": [
         "dependencies",
         "devDependencie",
