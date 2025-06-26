@@ -8,8 +8,7 @@
     ":timezone(America/Chicago)",
     ":combinePatchMinorReleases",
     "helpers:disableTypesNodeMajor",
-    "group:vite",
-    "group:tauriMonorepo"
+    "group:vite"
   ],
   "rangeStrategy": "pin",
   "packageRules": [
@@ -42,21 +41,20 @@
       ]
     },
     {
-      "groupName": "tauri dependencies",
-      "matchDepTypes": [
-        "dependencies",
-        "devDependencie",
-        "dev-dependencies",
-        "build-dependencies"
-      ],
       "matchPackageNames": [
         "@tauri-apps/**",
         "tauri",
-        "tauri-build",
-        "/^tauri-plugin-/",
+        "tauri-*",
         "!tauri-specta",
         "!tauri-plugin-prevent-default"
-      ]
+      ],
+      "groupName": "Tauri dependencies",
+      "group-slug": "tauri-dependencies"
+    },
+    {
+      "matchPackageNames": ["specta", "specta-*", "tauri-specta"],
+      "groupName": "tauri-specta dependencies",
+      "groupSlug": "tauri-specta-dependencies"
     }
   ],
   "lockFileMaintenance": {
