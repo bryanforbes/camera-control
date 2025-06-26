@@ -49,7 +49,7 @@
         "!tauri-plugin-prevent-default"
       ],
       "groupName": "Tauri dependencies",
-      "group-slug": "tauri-dependencies"
+      "groupSlug": "tauri-dependencies"
     },
     {
       "matchPackageNames": ["specta", "specta-*", "tauri-specta"],
