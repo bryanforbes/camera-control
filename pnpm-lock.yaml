@@ -52,8 +52,8 @@ importers:
         specifier: 6.11.3
         version: 6.11.3
       '@types/lint-staged':
-        specifier: 13.3.0
-        version: 13.3.0
+        specifier: 14.0.0
+        version: 14.0.0
       '@types/node':
         specifier: 22.17.1
         version: 22.17.1
@@ -813,8 +813,9 @@ packages:
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
-  '@types/lint-staged@13.3.0':
-    resolution: {integrity: sha512-WxGjVP+rA4OJlEdbZdT9MS9PFKQ7kVPhLn26gC+2tnBWBEFEj/KW+IbFfz6sxdxY5U6V7BvyF+3BzCGsAMHhNg==}
+  '@types/lint-staged@14.0.0':
+    resolution: {integrity: sha512-N8jBZIy9SWiPqO40VQdWiu7lXwzjDALPkHYDU9Z1UMPYmoFUSPLGMVXhuWNQR7dJrCFiphQ79goJPgr0rXC0Wg==}
+    deprecated: This is a stub types definition. lint-staged provides its own type definitions, so you do not need this installed.
 
   '@types/node@22.17.1':
     resolution: {integrity: sha512-y3tBaz+rjspDTylNjAX37jEC3TETEFGNJL6uQDxwF9/8GLLIjW1rvVHlynyuUKMnMr1Roq8jOv3vkopBjC4/VA==}
@@ -2876,7 +2877,11 @@ snapshots:
 
   '@types/json-schema@7.0.15': {}
 
-  '@types/lint-staged@13.3.0': {}
+  '@types/lint-staged@14.0.0':
+    dependencies:
+      lint-staged: 16.1.5
+    transitivePeerDependencies:
+      - supports-color
 
   '@types/node@22.17.1':
     dependencies:
