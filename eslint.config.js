@@ -2,7 +2,6 @@ import eslint from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
-import svelteParser from 'svelte-eslint-parser';
 import ts from 'typescript-eslint';
 import svelteConfig from './svelte.config.js';
 
@@ -17,11 +16,11 @@ export default ts.config(
     ],
   },
   eslint.configs.recommended,
-  ...ts.configs.strictTypeChecked,
-  ...ts.configs.stylisticTypeChecked,
-  ...svelte.configs.recommended,
+  ts.configs.strictTypeChecked,
+  ts.configs.stylisticTypeChecked,
+  svelte.configs.recommended,
   prettier,
-  ...svelte.configs.prettier,
+  svelte.configs.prettier,
   {
     languageOptions: {
       ecmaVersion: 2022,
@@ -29,11 +28,20 @@ export default ts.config(
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
         extraFileExtensions: ['.svelte'],
+        svelteFeatures: {
+          experimentalGenerics: true,
+        },
+        parser: ts.parser,
+        svelteConfig,
       },
     },
     rules: {
-      '@typescript-eslint/restrict-template-expressions': 'off',
-      '@typescript-eslint/no-confusing-void-expression': 'off',
+      '@typescript-eslint/restrict-template-expressions': [
+        'error',
+        {
+          allowNumber: true,
+        },
+      ],
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/consistent-type-exports': 'error',
       '@typescript-eslint/no-import-type-side-effects': 'error',
@@ -61,15 +69,9 @@ export default ts.config(
   },
   {
     files: ['src/**/*.svelte', 'src/**/*.svelte.ts'],
-    languageOptions: {
-      parser: svelteParser,
-      parserOptions: {
-        svelteFeatures: {
-          experimentalGenerics: true,
-        },
-        parser: ts.parser,
-        svelteConfig,
-      },
+    rules: {
+      // Svelte's @render syntax triggers this error
+      '@typescript-eslint/no-confusing-void-expression': 'off',
     },
   },
 );
