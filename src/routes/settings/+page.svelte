@@ -1,6 +1,6 @@
 <script lang="ts">
   import { commands } from '$lib/bindings';
-  import { ui_state } from '$lib/ui_state.svelte';
+  import { uiState } from '$lib/ui-state.svelte';
   import { ask } from '@tauri-apps/plugin-dialog';
   import { on } from 'svelte/events';
 
@@ -51,13 +51,13 @@
     <select
       id="ports"
       bind:value={
-        () => ui_state.port ?? '',
+        () => uiState.port ?? '',
         (value: string) => void commands.setPort(value === '' ? null : value)
       }
     >
       <option value=""></option>
-      {#if ui_state.ports}
-        {#each ui_state.ports as port (port)}
+      {#if uiState.ports}
+        {#each uiState.ports as port (port)}
           <option value={port}>{port}</option>
         {/each}
       {/if}
@@ -84,7 +84,7 @@
   >
 {/snippet}
 
-<div class="flex flex-row justify-between gap-1 p-4" inert={!ui_state.port}>
+<div class="flex flex-row justify-between gap-1 p-4" inert={!uiState.port}>
   <section
     class="grid grid-cols-[repeat(12,25px)] grid-rows-[100px_100px_100px_50px] gap-1"
   >

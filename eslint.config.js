@@ -1,6 +1,7 @@
 import eslint from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import svelte from 'eslint-plugin-svelte';
+import unicorn from 'eslint-plugin-unicorn';
 import globals from 'globals';
 import ts from 'typescript-eslint';
 import svelteConfig from './svelte.config.js';
@@ -13,9 +14,11 @@ export default ts.config(
       'build/',
       '.svelte-kit/',
       'scripts/',
+      'src/lib/bindings.ts',
     ],
   },
   eslint.configs.recommended,
+  unicorn.configs.recommended,
   ts.configs.strictTypeChecked,
   ts.configs.stylisticTypeChecked,
   svelte.configs.recommended,
@@ -52,6 +55,18 @@ export default ts.config(
           allowInGenericTypeArguments: true,
         },
       ],
+      'unicorn/explicit-length-check': 'off',
+      'unicorn/prevent-abbreviations': [
+        'error',
+        {
+          allowList: {
+            Props: true,
+          },
+        },
+      ],
+      'unicorn/no-null': 'off',
+      'unicorn/prefer-switch': 'off',
+      'unicorn/no-empty-file': 'off',
     },
   },
   {
@@ -65,6 +80,9 @@ export default ts.config(
     files: ['src/**'],
     languageOptions: {
       globals: globals.browser,
+    },
+    rules: {
+      '@typescript-eslint/naming-convention': 'error',
     },
   },
   {

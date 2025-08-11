@@ -16,7 +16,8 @@ function set({ port, ports, status }: UIStateEvent) {
   state.status = status;
 }
 
+// eslint-disable-next-line unicorn/prefer-top-level-await
 void commands.getState().then(set);
 void events.uiStateEvent.listen((event) => set(event.payload));
 
-export const ui_state: ReadonlyUIStateEvent = state;
+export const uiState: ReadonlyUIStateEvent = state;
