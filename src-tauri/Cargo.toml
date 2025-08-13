@@ -18,7 +18,7 @@ serde = { version = "=1.0.219", features = ["derive"] }
 serde_json = "=1.0.142"
 serialport = "=4.7.2"
 tauri-plugin-dialog = "=2.3.2"
-tauri-plugin-prevent-default = "=3.0.0"
+tauri-plugin-prevent-default = "=3.0.1"
 tauri-plugin-store = "=2.3.0"
 tauri-plugin-window-state = "=2.4.0"
 thiserror = "=2.0.12"
