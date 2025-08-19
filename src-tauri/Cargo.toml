@@ -10,10 +10,10 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "=2.3.1", features = ["config-toml", "isolation"] }
+tauri-build = { version = "=2.4.0", features = ["config-toml", "isolation"] }
 
 [dependencies]
-tauri = { version = "=2.7.0", features = ["config-toml", "isolation"] }
+tauri = { version = "=2.8.2", features = ["config-toml", "isolation"] }
 serde = { version = "=1.0.219", features = ["derive"] }
 serde_json = "=1.0.143"
 serialport = "=4.7.2"
