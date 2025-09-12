@@ -10,6 +10,7 @@
     "helpers:disableTypesNodeMajor",
     "group:vite"
   ],
+  "ignoreDeps": ["node"],
   "rangeStrategy": "pin",
   "packageRules": [
     {
