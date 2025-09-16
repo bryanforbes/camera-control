@@ -14,7 +14,7 @@ tauri-build = { version = "=2.4.1", features = ["config-toml", "isolation"] }
 
 [dependencies]
 tauri = { version = "=2.8.5", features = ["config-toml", "isolation"] }
-serde = { version = "=1.0.219", features = ["derive"] }
+serde = { version = "=1.0.225", features = ["derive"] }
 serde_json = "=1.0.143"
 serialport = "=4.7.3"
 tauri-plugin-dialog = "=2.4.0"
