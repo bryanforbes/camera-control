@@ -54,11 +54,5 @@
     "vite": "7.1.5",
     "vite-plugin-checker": "0.10.3"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@tailwindcss/oxide",
-      "esbuild"
-    ]
-  },
   "packageManager": "pnpm@10.17.0"
 }
