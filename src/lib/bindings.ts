@@ -72,9 +72,8 @@ import { type WebviewWindow as __WebviewWindow__ } from '@tauri-apps/api/webview
 type __EventObj__<T> = {
   listen: (cb: TAURI_API_EVENT.EventCallback<T>) => ReturnType<typeof TAURI_API_EVENT.listen<T>>;
   once: (cb: TAURI_API_EVENT.EventCallback<T>) => ReturnType<typeof TAURI_API_EVENT.once<T>>;
-  emit: null extends T
-    ? (payload?: T) => ReturnType<typeof TAURI_API_EVENT.emit>
-    : (payload: T) => ReturnType<typeof TAURI_API_EVENT.emit>;
+  emit: null extends T ? (payload?: T) => ReturnType<typeof TAURI_API_EVENT.emit>
+  : (payload: T) => ReturnType<typeof TAURI_API_EVENT.emit>;
 };
 
 export type Result<T, E> = { status: 'ok'; data: T } | { status: 'error'; error: E };

@@ -4,6 +4,7 @@
  */
 export default {
   singleQuote: true,
+  experimentalTernaries: true,
   plugins: [
     'prettier-plugin-svelte',
     'prettier-plugin-organize-imports',
