@@ -1,11 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "github>bryanforbes/renovate-presets:js-app.json5",
-    "group:vite",
-    "github>bryanforbes/renovate-presets:js-linters.json5",
-    "github>bryanforbes/renovate-presets:tauri.json5"
-  ],
+  "extends": ["github>bryanforbes/renovate-presets:js-app.json5", "group:vite"],
   "rangeStrategy": "pin",
   "packageRules": [
     {
@@ -25,6 +20,12 @@
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "Rust dev and build dependencies (non-major)",
       "groupSlug": "rust-dev-build-dependencies"
+    },
+    {
+      "extends": ["github>bryanforbes/renovate-presets:js-linters.json5"]
+    },
+    {
+      "extends": ["github>bryanforbes/renovate-presets:tauri.json5"]
     }
   ]
 }
