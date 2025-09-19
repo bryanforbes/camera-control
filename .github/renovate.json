@@ -1,16 +1,11 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended",
-    "schedule:daily",
-    ":enablePreCommit",
-    ":assignee(bryanforbes)",
-    ":timezone(America/Chicago)",
-    ":combinePatchMinorReleases",
-    "helpers:disableTypesNodeMajor",
-    "group:vite"
+    "github>bryanforbes/renovate-presets:js-app.json5",
+    "group:vite",
+    "github>bryanforbes/renovate-presets:js-linters.json5",
+    "github>bryanforbes/renovate-presets:tauri.json5"
   ],
-  "ignoreDeps": ["node"],
   "rangeStrategy": "pin",
   "packageRules": [
     {
@@ -30,39 +25,6 @@
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "Rust dev and build dependencies (non-major)",
       "groupSlug": "rust-dev-build-dependencies"
-    },
-    {
-      "groupName": "linters",
-      "extends": ["packages:linters"],
-      "matchPackageNames": [
-        "typescript-eslint",
-        "globals",
-        "@types/eslint-{/,}**",
-        "prettier-plugin{/,}**"
-      ]
-    },
-    {
-      "matchPackageNames": [
-        "@tauri-apps/**",
-        "tauri",
-        "tauri-*",
-        "!tauri-specta",
-        "!tauri-plugin-prevent-default"
-      ],
-      "groupName": "Tauri dependencies",
-      "groupSlug": "tauri-dependencies"
-    },
-    {
-      "matchPackageNames": ["specta", "specta-*", "tauri-specta"],
-      "groupName": "tauri-specta dependencies",
-      "groupSlug": "tauri-specta-dependencies"
     }
-  ],
-  "lockFileMaintenance": {
-    "enabled": true,
-    "extends": ["schedule:daily"]
-  },
-  "minimumReleaseAge": "3 days",
-  "internalChecksFilter": "strict",
-  "configMigration": true
+  ]
 }
