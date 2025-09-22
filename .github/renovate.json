@@ -22,10 +22,10 @@
       "groupSlug": "rust-dev-build-dependencies"
     },
     {
-      "extends": "github>bryanforbes/renovate-presets:group-linters.json5"
+      "extends": ["github>bryanforbes/renovate-presets:group-linters.json5"]
     },
     {
-      "extends": "github>bryanforbes/renovate-presets:group-tauri.json5"
+      "extends": ["github>bryanforbes/renovate-presets:group-tauri.json5"]
     }
   ]
 }
