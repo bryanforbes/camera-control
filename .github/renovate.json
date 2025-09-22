@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>bryanforbes/renovate-presets:js-app.json5"],
+  "extends": ["github>bryanforbes/renovate-presets:config-js-app.json5"],
   "rangeStrategy": "pin",
   "packageRules": [
     {
