@@ -8,10 +8,27 @@ on:
       - '.github/workflows/release.yaml'
       - 'README.md'
       - 'LICENSE'
+      - 'docs/**'
+      - '*.md'
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/dependency-review-action@v4
+
   test-build:
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -31,7 +48,7 @@ jobs:
           targets: ${{ matrix.rust-targets }}
           components: 'clippy'
 
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         name: Install pnpm
         id: pnpm-install
         with:
@@ -40,11 +57,11 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: 'pnpm'
 
       - name: Install dependencies (ubuntu only)
-        if: ${{ startsWith(matrix.platform, 'ubuntu-') }}
+        if: startsWith(matrix.platform, 'ubuntu-')
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libudev-dev
@@ -60,7 +77,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Lint files (macOS only)
-        if: ${{ startsWith(matrix.platform, 'macos-') }}
+        if: startsWith(matrix.platform, 'macos-')
         run: |
           cargo clippy --manifest-path src-tauri/Cargo.toml --no-deps
           pnpm check
