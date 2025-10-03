@@ -21,8 +21,8 @@
     "@tauri-apps/plugin-window-state": "2.4.0"
   },
   "devDependencies": {
-    "@commitlint/cli": "19.8.1",
-    "@commitlint/config-conventional": "19.8.1",
+    "@commitlint/cli": "20.1.0",
+    "@commitlint/config-conventional": "20.0.0",
     "@sveltejs/adapter-static": "3.0.9",
     "@sveltejs/kit": "2.43.5",
     "@sveltejs/vite-plugin-svelte": "6.2.1",
