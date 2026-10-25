@@ -17,10 +17,9 @@ use crate::error::Result;
 
 use camera::Direction;
 use log::debug;
-use tauri::{
-    Manager, WindowEvent,
-    menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
-};
+#[cfg(target_os = "macos")]
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::{Manager, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 use tauri_plugin_window_state::StateFlags;
@@ -185,7 +184,7 @@ fn main() {
         )
         .init();
 
-    let specta_builder = tauri_specta::Builder::<tauri::Wry>::new()
+    let specta_builder = tauri_specta::Builder::new()
         .commands(tauri_specta::collect_commands![
             open_settings,
             get_state,
@@ -205,20 +204,18 @@ fn main() {
 
     #[cfg(debug_assertions)]
     {
-        let ts = specta_typescript::Typescript::default()
-            .header("/* eslint-disable */ // @ts-nocheck")
-            .formatter(|file| {
-                std::process::Command::new("../node_modules/.bin/prettier")
-                    .arg("--write")
-                    .arg(file)
-                    .output()
-                    .map(|_| ())
-                    .map_err(std::io::Error::other)
-            });
+        let ts =
+            specta_typescript::Typescript::default().header("/* eslint-disable */ // @ts-nocheck");
 
         specta_builder
             .export(ts, "../src/lib/bindings.ts")
             .expect("Failed to export typescript bindings");
+
+        std::process::Command::new("pnpm")
+            .current_dir("../")
+            .args(["exec", "prettier", "--write", "./src/lib/bindings.ts"])
+            .status()
+            .expect("Failed to run prettier on typescript bindings");
     }
 
     #[allow(unused_mut)]
