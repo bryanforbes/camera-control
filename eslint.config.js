@@ -57,7 +57,7 @@ export default defineConfig(
         },
       ],
       'unicorn/explicit-length-check': 'off',
-      'unicorn/prevent-abbreviations': [
+      'unicorn/name-replacements': [
         'error',
         {
           allowList: {

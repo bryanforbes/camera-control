@@ -1,7 +1,7 @@
 /**
- * @see https://prettier.io/docs/configuration
- * @type {import("prettier").Config}
- */
+@see https://prettier.io/docs/configuration
+@type {import("prettier").Config}
+*/
 export default {
   singleQuote: true,
   experimentalTernaries: true,

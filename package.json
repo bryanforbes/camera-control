@@ -23,6 +23,7 @@
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
+    "@eslint/js": "10.0.1",
     "@sveltejs/adapter-static": "3.0.9",
     "@sveltejs/kit": "2.43.5",
     "@sveltejs/vite-plugin-svelte": "6.2.1",

@@ -5,11 +5,11 @@
   import { on } from 'svelte/events';
 
   async function confirmSetPreset(preset: number, name: string) {
-    const confirmed = await ask(`Are you sure you want to set ${name}?`, {
+    const isConfirmed = await ask(`Are you sure you want to set ${name}?`, {
       kind: 'warning',
     });
 
-    if (confirmed) {
+    if (isConfirmed) {
       await commands.setPreset(preset, name);
     }
   }
@@ -89,22 +89,22 @@
     class="grid grid-cols-[repeat(12,25px)] grid-rows-[100px_100px_100px_50px] gap-1"
   >
     {@render DirectionButton(
-      '\u2191',
+      '\u{2191}',
       'up',
       'row-start-1 col-start-5 col-span-4',
     )}
     {@render DirectionButton(
-      '\u2190',
+      '\u{2190}',
       'left',
       'row-start-2 col-start-1 col-span-4',
     )}
     {@render DirectionButton(
-      '\u2192',
+      '\u{2192}',
       'right',
       'row-start-2 col-start-9 col-span-4',
     )}
     {@render DirectionButton(
-      '\u2193',
+      '\u{2193}',
       'down',
       'row-start-3 col-start-5 col-span-4',
     )}

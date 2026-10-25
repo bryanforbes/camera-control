@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-top-level-side-effects */
 import { commands, events, type UIStateEvent } from './bindings';
 
 export interface ReadonlyUIStateEvent extends Readonly<Omit<UIStateEvent, 'ports'>> {
@@ -16,7 +17,6 @@ function set({ port, ports, status }: UIStateEvent) {
   state.status = status;
 }
 
-// eslint-disable-next-line unicorn/prefer-top-level-await
 void commands.getState().then(set);
 void events.uiStateEvent.listen((event) => set(event.payload));
 
