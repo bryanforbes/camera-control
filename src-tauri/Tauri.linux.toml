@@ -1,0 +1,2 @@
+[bundle]
+targets = ["deb", "appimage"]
