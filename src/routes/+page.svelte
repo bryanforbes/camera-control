@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { commands } from '$lib/bindings';
-  import { uiState } from '$lib/ui-state.svelte';
+  import { commands } from '#lib/bindings.js';
+  import { uiState } from '#lib/ui-state.svelte.js';
 
   async function goToPreset(preset: number, name: string) {
     await commands.goToPreset(preset, name);

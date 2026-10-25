@@ -1,11 +1,19 @@
 import eslint from '@eslint/js';
+import { loadConfig } from '@sveltejs/load-config';
 import prettier from 'eslint-config-prettier';
 import svelte from 'eslint-plugin-svelte';
 import unicorn from 'eslint-plugin-unicorn';
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
-import svelteConfig from './svelte.config.js';
+
+const configResult = await loadConfig('./', { traverse: false });
+if (configResult && 'error' in configResult) {
+  // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+  throw new Error(`Failed to load Svelte config: ${configResult.error}`);
+}
+
+const svelteConfig = configResult?.config;
 
 export default defineConfig(
   {
