@@ -256,10 +256,10 @@ fn main() {
         .manage(Mutex::new(UIState::default()))
         .invoke_handler(specta_builder.invoke_handler())
         .on_window_event(|window, event| {
-            if let WindowEvent::Destroyed = event {
-                if window.label() == "main" {
-                    std::process::exit(0);
-                }
+            if let WindowEvent::Destroyed = event
+                && window.label() == "main"
+            {
+                std::process::exit(0);
             }
         })
         .setup(move |app| {

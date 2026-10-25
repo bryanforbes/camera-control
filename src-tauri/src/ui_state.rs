@@ -36,11 +36,11 @@ impl UIState {
 
     pub fn initialize<R: tauri::Runtime>(&mut self, app: &tauri::AppHandle<R>) -> Result<()> {
         let store = app.store("config.json")?;
-        if let Some(port_name) = store.get("port") {
-            if self.set_camera(port_name.as_str()).is_err() {
-                store.set("port", serde_json::Value::Null);
-                store.save()?;
-            }
+        if let Some(port_name) = store.get("port")
+            && self.set_camera(port_name.as_str()).is_err()
+        {
+            store.set("port", serde_json::Value::Null);
+            store.save()?;
         }
         store.close_resource();
 
