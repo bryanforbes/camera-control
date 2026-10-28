@@ -1,0 +1,4 @@
+engineStrict: true
+autoInstallPeers: true
+nodeLinker: 'hoisted'
+ignoreScripts: true
