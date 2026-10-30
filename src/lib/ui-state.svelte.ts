@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-top-level-side-effects */
 import { commands, events, type UIStateEvent_Serialize } from './bindings';
 
 export interface ReadonlyUIStateEvent extends Readonly<Omit<UIStateEvent_Serialize, 'ports'>> {
