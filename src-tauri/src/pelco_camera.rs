@@ -21,7 +21,7 @@ impl Camera for PelcoCamera {
         Self: Sized,
     {
         Ok(Self {
-            port: serialport::new(path, 9000)
+            port: serialport::new(path, 9600)
                 .data_bits(DataBits::Eight)
                 .flow_control(FlowControl::None)
                 .parity(Parity::None)
