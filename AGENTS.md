@@ -16,9 +16,9 @@ The application is cross-platform, targeting macOS (Universal), Windows, and Lin
 
 ### Prerequisites
 
-- Node.js 20 or later
+- Node.js 26 or later
 - Rust stable toolchain
-- pnpm 10.17.0 (managed via `packageManager` field)
+- pnpm 12.15.0 (managed via `packageManager` field)
 - Platform-specific dependencies:
   - **macOS**: Xcode Command Line Tools
   - **Linux**: `libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libudev-dev`
@@ -146,6 +146,7 @@ The project uses Husky and lint-staged. On commit, the following run automatical
 ### Code Style Guidelines
 
 **TypeScript/Svelte**:
+
 - Single quotes for strings
 - Experimental ternaries enabled
 - Organize imports automatically
@@ -156,11 +157,13 @@ The project uses Husky and lint-staged. On commit, the following run automatical
 - Svelte 5 runes mode enabled
 
 **Rust**:
+
 - Standard Rust formatting (rustfmt)
 - Clippy linting enforced
 - Follow `rustfmt.toml` configuration
 
 **File Organization**:
+
 - Frontend code: `src/` directory
 - Backend code: `src-tauri/src/` directory
 - Routes: `src/routes/`
@@ -172,6 +175,7 @@ The project uses Husky and lint-staged. On commit, the following run automatical
 ### GitHub Actions Workflows
 
 **Test Workflow** (`.github/workflows/test.yaml`):
+
 - Triggers on push to `master` and PRs
 - Runs on macOS, Ubuntu, and Windows
 - Steps:
@@ -182,6 +186,7 @@ The project uses Husky and lint-staged. On commit, the following run automatical
   5. Tauri build (all platforms)
 
 **Release Workflow** (`.github/workflows/release.yaml`):
+
 - Handles versioning and releases
 - Creates signed builds for distribution
 
@@ -202,7 +207,7 @@ cargo tauri build
 
 The project uses Conventional Commits via commitlint:
 
-```
+```text
 type(scope): subject
 
 body
@@ -213,7 +218,8 @@ footer
 **Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, etc.
 
 **Example**:
-```
+
+```text
 feat(camera): add zoom control support
 
 Implement zoom in/out commands for VISCA protocol
@@ -237,7 +243,7 @@ All checks must pass before merging. The macOS CI runner performs the most compr
 
 ## Project Structure
 
-```
+```text
 camera-control/
 ├── src/                      # Frontend source (SvelteKit + Svelte 5)
 │   ├── lib/                  # Shared libraries and components
@@ -289,12 +295,14 @@ camera-control/
 ### Common Issues
 
 **Port Already in Use**:
+
 ```bash
 # Kill process on port 1420
 lsof -ti:1420 | xargs kill -9
 ```
 
 **Rust Compilation Errors**:
+
 ```bash
 # Clean Rust build cache
 cargo clean --manifest-path src-tauri/Cargo.toml
@@ -304,6 +312,7 @@ cargo update --manifest-path src-tauri/Cargo.toml
 ```
 
 **Frontend Type Errors**:
+
 ```bash
 # Regenerate SvelteKit files
 pnpm exec svelte-kit sync
@@ -329,10 +338,12 @@ rm -rf node_modules .svelte-kit && pnpm install
 ## Environment Variables
 
 **Development**:
+
 - `TAURI_DEV_HOST`: Custom host for development server (optional)
 - `RUST_LOG`: Control Rust logging level (e.g., `RUST_LOG=debug`)
 
 **Build/Release**:
+
 - `GITHUB_TOKEN`: Required for release workflow
 - `TAURI_SIGNING_PRIVATE_KEY`: Code signing key
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: Code signing password
