@@ -14,9 +14,9 @@ export const commands = {
   goToPreset: (preset: number, name: string) =>
     __TAURI_INVOKE<void>('go_to_preset', { preset, name }),
   setPreset: (preset: number, name: string) => __TAURI_INVOKE<void>('set_preset', { preset, name }),
-  moveCamera: (direction: string) => __TAURI_INVOKE<void>('move_camera', { direction }),
+  moveCamera: (direction: Direction) => __TAURI_INVOKE<void>('move_camera', { direction }),
   stopMove: () => __TAURI_INVOKE<void>('stop_move'),
-  zoom: (direction: string) => __TAURI_INVOKE<void>('zoom', { direction }),
+  zoom: (direction: Zoom) => __TAURI_INVOKE<void>('zoom', { direction }),
   stopZoom: () => __TAURI_INVOKE<void>('stop_zoom'),
   getPorts: () => __TAURI_INVOKE<string[]>('get_ports'),
 };
@@ -27,6 +27,8 @@ export const events = {
 };
 
 /* Types */
+export type Direction = 'down' | 'up' | 'left' | 'right';
+
 export type Error = Error_Serialize | Error_Deserialize;
 
 export type Error_Deserialize =
@@ -58,6 +60,8 @@ export type UIStateEvent_Serialize = {
   ports: string[] | null;
   status: string;
 };
+
+export type Zoom = 'in' | 'out';
 
 /* Tauri Specta runtime */
 type EventEmit<T> = [T] extends [null] ? () => Promise<void> : (payload: T) => Promise<void>;

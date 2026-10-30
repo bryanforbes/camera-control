@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use log::debug;
+use log::{debug, error};
 use serde::Serialize;
 use specta::Type;
 use tauri::Manager;
@@ -23,6 +23,12 @@ pub struct UIState {
 impl UIState {
     fn set_camera(&mut self, path: Option<&str>) -> Result<()> {
         debug!("{path:?}");
+
+        if let Some(camera) = self.camera.as_mut()
+            && let Err(error) = camera.stop()
+        {
+            error!("Failed to stop camera before changing ports: {error}");
+        }
 
         // Drop the previous camera implicitly before setting a new one
         self.camera = None;

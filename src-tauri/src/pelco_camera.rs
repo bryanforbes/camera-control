@@ -1,4 +1,4 @@
-use crate::camera::{Camera, Direction};
+use crate::camera::{Camera, Direction, Zoom};
 use crate::error::Result;
 use pelcodrs::{AutoCtrl, Direction as PelcoDirection, Message, MessageBuilder, Speed};
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
@@ -49,12 +49,11 @@ impl Camera for PelcoCamera {
         )?)
     }
 
-    fn zoom_in(&mut self) -> Result<()> {
-        self.send_message(MessageBuilder::new(1).zoom_in().finalize()?)
-    }
-
-    fn zoom_out(&mut self) -> Result<()> {
-        self.send_message(MessageBuilder::new(1).zoom_out().finalize()?)
+    fn zoom(&mut self, zoom: crate::camera::Zoom) -> Result<()> {
+        self.send_message(match zoom {
+            Zoom::In => MessageBuilder::new(1).zoom_in().finalize()?,
+            Zoom::Out => MessageBuilder::new(1).zoom_out().finalize()?,
+        })
     }
 
     fn pan_tilt(&mut self, direction: crate::camera::Direction) -> Result<()> {

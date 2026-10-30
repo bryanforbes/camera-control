@@ -15,7 +15,7 @@ use std::sync::Mutex;
 
 use crate::error::Result;
 
-use camera::Direction;
+use camera::{Direction, Zoom};
 use log::debug;
 #[cfg(target_os = "macos")]
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
@@ -116,18 +116,11 @@ fn set_preset(app_handle: tauri::AppHandle, preset: u8, name: &str) {
 
 #[tauri::command]
 #[specta::specta]
-fn move_camera(app_handle: tauri::AppHandle, direction: &str) {
+fn move_camera(app_handle: tauri::AppHandle, direction: Direction) {
     debug!("Direction: {}", direction);
 
     let status = format!("Moving {direction}");
-    with_ui_state_status(&app_handle, &status, |ui| {
-        ui.camera()?.pan_tilt(match direction {
-            "left" => Direction::Left,
-            "up" => Direction::Up,
-            "right" => Direction::Right,
-            &_ => Direction::Down,
-        })
-    })
+    with_ui_state_status(&app_handle, &status, |ui| ui.camera()?.pan_tilt(direction))
 }
 
 #[tauri::command]
@@ -140,18 +133,14 @@ fn stop_move(app_handle: tauri::AppHandle) {
 
 #[tauri::command]
 #[specta::specta]
-fn zoom(app_handle: tauri::AppHandle, direction: &str) {
+fn zoom(app_handle: tauri::AppHandle, direction: Zoom) {
     debug!("Zoom: {}", direction);
 
     let status = format!("Zooming {direction}");
     with_ui_state_status(&app_handle, &status, |ui| {
         let camera = ui.camera()?;
 
-        if direction == "in" {
-            camera.zoom_in()
-        } else {
-            camera.zoom_out()
-        }
+        camera.zoom(direction)
     });
 }
 
@@ -170,6 +159,15 @@ fn get_ports() -> Result<Vec<String>> {
         .into_iter()
         .map(|port| port.port_name)
         .collect())
+}
+
+fn stop_camera_before_exit(app_handle: &tauri::AppHandle) {
+    with_ui_state(app_handle, |ui| {
+        if let Ok(camera) = ui.camera() {
+            camera.stop()?;
+        }
+        Ok(())
+    });
 }
 
 fn main() {
@@ -249,15 +247,17 @@ fn main() {
             );
     }
 
-    tauri_builder
+    let app = tauri_builder
         .manage(Mutex::new(UIState::default()))
         .invoke_handler(specta_builder.invoke_handler())
-        .on_window_event(|window, event| {
-            if let WindowEvent::Destroyed = event
-                && window.label() == "main"
-            {
-                std::process::exit(0);
+        .on_window_event(|window, event| match event {
+            WindowEvent::CloseRequested { .. } => {
+                stop_camera_before_exit(window.app_handle());
             }
+            WindowEvent::Destroyed if window.label() == "main" => {
+                window.app_handle().exit(0);
+            }
+            _ => {}
         })
         .setup(move |app| {
             specta_builder.mount_events(app);
@@ -321,8 +321,14 @@ fn main() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let tauri::RunEvent::ExitRequested { .. } = event {
+            stop_camera_before_exit(app_handle);
+        }
+    });
 }
 
 async fn check_for_updates(
