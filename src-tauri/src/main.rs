@@ -154,11 +154,10 @@ fn stop_zoom(app_handle: tauri::AppHandle) {
 
 #[tauri::command]
 #[specta::specta]
-fn get_ports() -> Result<Vec<String>> {
-    Ok(serialport::available_ports()?
-        .into_iter()
-        .map(|port| port.port_name)
-        .collect())
+fn refresh_ports(app_handle: tauri::AppHandle) {
+    debug!("Refreshing ports");
+
+    with_ui_state_status(&app_handle, "Ports refreshed", |ui| ui.refresh_ports());
 }
 
 fn stop_camera_before_exit(app_handle: &tauri::AppHandle) {
@@ -195,7 +194,7 @@ fn main() {
             stop_move,
             zoom,
             stop_zoom,
-            get_ports,
+            refresh_ports,
         ])
         .events(tauri_specta::collect_events![UIStateEvent])
         .error_handling(tauri_specta::ErrorHandlingMode::Throw);

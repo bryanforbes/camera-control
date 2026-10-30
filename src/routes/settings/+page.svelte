@@ -133,23 +133,34 @@
 </svelte:head>
 
 <form class="self-center">
-  <label>
-    Port:
-    <select
-      id="ports"
-      bind:value={
-        () => uiState.port ?? '',
-        (value: string) => void commands.setPort(value === '' ? null : value)
-      }
+  <div class="flex gap-1">
+    <!-- spacer to make sure the label/select is centered -->
+    <div class="m-0 size-8 p-0"></div>
+
+    <label class="inline-flex items-stretch gap-1">
+      <span class="m-auto">Port:</span>
+      <select
+        id="ports"
+        bind:value={
+          () => uiState.port ?? '',
+          (value: string) => void commands.setPort(value === '' ? null : value)
+        }
+      >
+        <option value=""></option>
+        {#if uiState.ports}
+          {#each uiState.ports as port (port)}
+            <option value={port}>{port}</option>
+          {/each}
+        {/if}
+      </select>
+    </label>
+
+    <button
+      type="button"
+      class="m-0 size-8 p-0 text-center text-xl font-normal"
+      onclick={() => void commands.refreshPorts()}>&#x21BB;</button
     >
-      <option value=""></option>
-      {#if uiState.ports}
-        {#each uiState.ports as port (port)}
-          <option value={port}>{port}</option>
-        {/each}
-      {/if}
-    </select>
-  </label>
+  </div>
 </form>
 
 {#snippet PresetButton(preset: number, name: string)}

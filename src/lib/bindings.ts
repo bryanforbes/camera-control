@@ -18,7 +18,7 @@ export const commands = {
   stopMove: () => __TAURI_INVOKE<void>('stop_move'),
   zoom: (direction: Zoom) => __TAURI_INVOKE<void>('zoom', { direction }),
   stopZoom: () => __TAURI_INVOKE<void>('stop_zoom'),
-  getPorts: () => __TAURI_INVOKE<string[]>('get_ports'),
+  refreshPorts: () => __TAURI_INVOKE<void>('refresh_ports'),
 };
 
 /** Events */

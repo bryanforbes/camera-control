@@ -42,21 +42,21 @@ impl UIState {
 
     pub fn initialize<R: tauri::Runtime>(&mut self, app: &tauri::AppHandle<R>) -> Result<()> {
         let store = app.store("config.json")?;
-        if let Some(port_name) = store.get("port")
-            && self.set_camera(port_name.as_str()).is_err()
-        {
-            store.set("port", serde_json::Value::Null);
-            store.save()?;
-        }
+        let saved_port = store.get("port");
         store.close_resource();
 
-        if self.camera.is_some() {
-            self.set_status("Connected")?;
-        } else {
-            self.set_status("Disconnected")?;
-        }
+        let Some(path) = saved_port.as_ref().and_then(|value| value.as_str()) else {
+            return self.set_status("Disconnected");
+        };
 
-        Ok(())
+        match self.set_camera(Some(path)) {
+            Ok(()) => self.set_status("Connected"),
+            Err(error) => {
+                error!("Failed to connect to saved port {path}: {error}");
+
+                self.set_status(&format!("Could not open {path}. Connect the camera, then refresh and select its port in Settings."))
+            }
+        }
     }
 
     pub fn camera(&mut self) -> Result<&mut dyn Camera> {
