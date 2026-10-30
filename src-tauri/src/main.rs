@@ -308,7 +308,7 @@ fn main() {
                     } else if event.id() == "check-for-updates" {
                         let handle = app.app_handle().clone();
                         tauri::async_runtime::spawn(async move {
-                            check_for_updates(&handle, true).await.unwrap();
+                            check_for_updates(&handle, true).await;
                         });
                     }
                 });
@@ -316,7 +316,7 @@ fn main() {
 
             let handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {
-                check_for_updates(&handle, false).await.unwrap();
+                check_for_updates(&handle, false).await;
             });
 
             Ok(())
@@ -331,13 +331,48 @@ fn main() {
     });
 }
 
-async fn check_for_updates(
+fn report_update_error(
     app: &tauri::AppHandle,
-    notify_up_to_date: bool,
-) -> tauri_plugin_updater::Result<()> {
+    title: &str,
+    error: &tauri_plugin_updater::Error,
+    notify: bool,
+) {
+    log::error!("{title}: {error}");
+
+    if notify {
+        app.dialog()
+            .message(format!(
+                "{title}.\n\n\
+                 Check your internet connection and try again. \
+                 If the problem persists, contact the application maintainer.\n\n\
+                 Details: {error}"
+            ))
+            .title(title)
+            .kind(MessageDialogKind::Error)
+            .buttons(MessageDialogButtons::Ok)
+            .show(|_| {});
+    }
+}
+
+async fn check_for_updates(app: &tauri::AppHandle, notify_up_to_date: bool) {
     let app_name = &app.package_info().name;
 
-    if let Some(update) = app.updater()?.check().await? {
+    let result = async { app.updater()?.check().await }.await;
+
+    let update = match result {
+        Ok(update) => update,
+        Err(error) => {
+            report_update_error(
+                app,
+                "Failed to check for updates",
+                &error,
+                notify_up_to_date,
+            );
+            return;
+        }
+    };
+
+    if let Some(update) = update {
         let body = update.body.clone().unwrap_or_else(|| String::from(""));
 
         let should_install = app
@@ -360,7 +395,7 @@ Release Notes:
             let mut downloaded = 0;
 
             // alternatively we could also call update.download() and update.install() separately
-            update
+            if let Err(error) = update
                 .download_and_install(
                     |chunk_length, content_length| {
                         downloaded += chunk_length;
@@ -370,7 +405,11 @@ Release Notes:
                         debug!("download finished");
                     },
                 )
-                .await?;
+                .await
+            {
+                report_update_error(app, "Failed to install update", &error, true);
+                return;
+            }
 
             let should_exit = app
                 .dialog()
@@ -394,6 +433,4 @@ Release Notes:
             .buttons(MessageDialogButtons::Ok)
             .blocking_show();
     }
-
-    Ok(())
 }
