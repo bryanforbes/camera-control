@@ -19,7 +19,7 @@ icon = [
   "icons/icon.ico"
 ]
 targets = "all"
-createUpdaterArtifacts = "v1Compatible"
+createUpdaterArtifacts = true
 
 [app]
 withGlobalTauri = true
@@ -45,7 +45,7 @@ resizable = false
 visible = false  # see +layout.svelte for explanation
 acceptFirstMouse = true
 width = 600
-height = 480
+height = 500
 useHttpsScheme = true
 
 [app.security]

@@ -135,7 +135,6 @@
 <form class="self-center">
   <div class="flex gap-1">
     <!-- spacer to make sure the label/select is centered -->
-    <div class="m-0 size-8 p-0"></div>
 
     <label class="inline-flex items-stretch gap-1">
       <span class="m-auto">Port:</span>
@@ -157,7 +156,7 @@
 
     <button
       type="button"
-      class="m-0 size-8 p-0 text-center text-xl font-normal"
+      class="text-center text-xl leading-none font-normal"
       onclick={() => void commands.refreshPorts()}>&#x21BB;</button
     >
   </div>
