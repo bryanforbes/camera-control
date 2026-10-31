@@ -52,9 +52,9 @@ useHttpsScheme = true
 freezePrototype = true
 
 [app.security.csp]
-defaultSrc = "'self'"
-connectSrc = "ipc: http://ipc.localhost"
-styleSrc = "'unsafe-inline' 'self'"
+default-src = "'self'"
+connect-src = "'self' ipc: http://ipc.localhost"
+style-src = "'unsafe-inline' 'self'"
 
 [app.security.pattern]
 use = "isolation"

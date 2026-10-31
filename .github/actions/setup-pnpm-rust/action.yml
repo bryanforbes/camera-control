@@ -37,12 +37,12 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libudev-dev
+        sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
 
     - uses: Swatinem/rust-cache@v2
       name: Set up Rust cache
       with:
-        workspaces: src-tauri
+        workspaces: './src-tauri -> target'
         key: ${{ inputs.runner-platform }}
         save-if: ${{ inputs.github-ref == 'refs/heads/master' }}
 
