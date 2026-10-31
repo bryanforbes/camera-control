@@ -1,6 +1,6 @@
 productName = "Camera Control"
 mainBinaryName = "Camera Control"
-version = "26.10.2"
+version = "26.10.3-0"
 identifier = "net.reigndropsfall.camera-control"
 
 [build]
