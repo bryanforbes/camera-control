@@ -429,7 +429,7 @@ dependencies = [
 
 [[package]]
 name = "camera-control"
-version = "26.10.3"
+version = "26.10.4-0"
 dependencies = [
  "deku",
  "log",
