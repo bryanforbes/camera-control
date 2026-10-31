@@ -20,14 +20,14 @@ runs:
         targets: ${{ inputs.rust-targets }}
         components: 'clippy'
 
-    - uses: pnpm/action-setup@v6
+    - uses: pnpm/action-setup@v6.1.0
       name: Install pnpm
       id: pnpm-install
       with:
         run_install: false
 
     - name: Setup node
-      uses: actions/setup-node@v7
+      uses: actions/setup-node@v7.1.0
       with:
         node-version: 26
         cache: 'pnpm'
@@ -39,7 +39,7 @@ runs:
         sudo apt-get update
         sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils libudev-dev
 
-    - uses: Swatinem/rust-cache@v2
+    - uses: Swatinem/rust-cache@v2.9.3
       name: Set up Rust cache
       with:
         workspaces: './src-tauri -> target'

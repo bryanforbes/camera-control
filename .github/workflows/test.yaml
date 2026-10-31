@@ -23,7 +23,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - uses: actions/dependency-review-action@v5.0.0
 
   test-build:
@@ -40,7 +40,7 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
 
       - name: Setup pnpm and Rust Environment
         uses: './.github/actions/setup-pnpm-rust'
@@ -60,7 +60,7 @@ jobs:
         run: |
           cargo test --manifest-path src-tauri/Cargo.toml
 
-      - uses: tauri-apps/tauri-action@v1.0
+      - uses: tauri-apps/tauri-action@v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
