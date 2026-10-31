@@ -1,13 +1,13 @@
-product-name = "Camera Control"
-main-binary-name = "Camera Control"
+productName = "Camera Control"
+mainBinaryName = "Camera Control"
 version = "26.10.1-0"
 identifier = "net.reigndropsfall.camera-control"
 
 [build]
-before-dev-command = "pnpm dev"
-before-build-command = "pnpm build"
-frontend-dist = "../build"
-dev-url = "http://localhost:1420"
+beforeDevCommand = "pnpm dev"
+beforeBuildCommand = "pnpm build"
+frontendDist = "../build"
+devUrl = "http://localhost:1420"
 
 [bundle]
 active = true
@@ -22,7 +22,7 @@ targets = "all"
 createUpdaterArtifacts = "v1Compatible"
 
 [app]
-with-global-tauri = true
+withGlobalTauri = true
 
 [[app.windows]]
 title = "Camera Control"
@@ -30,10 +30,10 @@ label = "main"
 fullscreen = false
 resizable = false
 visible = false  # see +layout.svelte for explanation
-accept-first-mouse = true
+acceptFirstMouse = true
 width = 350
 height = 450
-use-https-scheme = true
+useHttpsScheme = true
 
 [[app.windows]]
 title = "Camera Control Settings"
@@ -43,18 +43,18 @@ create = false
 fullscreen = false
 resizable = false
 visible = false  # see +layout.svelte for explanation
-accept-first-mouse = true
+acceptFirstMouse = true
 width = 600
 height = 480
-use-https-scheme = true
+useHttpsScheme = true
 
 [app.security]
-freeze-prototype = true
+freezePrototype = true
 
 [app.security.csp]
-default-src = "'self'"
-connect-src = "ipc: http://ipc.localhost"
-style-src = "'unsafe-inline' 'self'"
+defaultSrc = "'self'"
+connectSrc = "ipc: http://ipc.localhost"
+styleSrc = "'unsafe-inline' 'self'"
 
 [app.security.pattern]
 use = "isolation"
