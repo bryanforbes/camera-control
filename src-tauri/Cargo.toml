@@ -1,6 +1,6 @@
 [package]
 name = "camera-control"
-version = "26.10.3-0"
+version = "26.10.3"
 description = "An application to control the AViPAS camera at CrossLife Community Church"
 authors = ["Bryan Forbes <bryan@reigndropsfall.net>"]
 license = "BSD-3-Clause"
