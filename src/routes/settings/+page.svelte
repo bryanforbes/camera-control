@@ -1,9 +1,17 @@
 <script lang="ts">
   import { commands, type Direction, type Zoom } from '#lib/bindings.js';
   import { uiState } from '#lib/ui-state.svelte.js';
+  import type { LucideProps } from '@lucide/svelte';
+  import ArrowDown from '@lucide/svelte/icons/arrow-down';
+  import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+  import ArrowRight from '@lucide/svelte/icons/arrow-right';
+  import ArrowUp from '@lucide/svelte/icons/arrow-up';
+  import Minus from '@lucide/svelte/icons/minus';
+  import Plus from '@lucide/svelte/icons/plus';
+  import Refresh from '@lucide/svelte/icons/refresh-cw';
   import { ask } from '@tauri-apps/plugin-dialog';
+  import { onDestroy, type Component } from 'svelte';
   import { on } from 'svelte/events';
-  import { onDestroy } from 'svelte';
 
   async function confirmSetPreset(preset: number, name: string) {
     const isConfirmed = await ask(`Are you sure you want to set ${name}?`, {
@@ -154,10 +162,8 @@
       </select>
     </label>
 
-    <button
-      type="button"
-      class="text-center text-xl leading-none font-normal"
-      onclick={() => void commands.refreshPorts()}>&#x21BB;</button
+    <button type="button" onclick={() => void commands.refreshPorts()}
+      ><Refresh class="mt-1 mb-1 size-3" /></button
     >
   </div>
 </form>
@@ -169,16 +175,17 @@
 {/snippet}
 
 {#snippet DirectionButton(
-  label: string,
-  direction: 'in' | 'out' | 'up' | 'down' | 'left' | 'right',
+  Icon: Component<LucideProps>,
+  direction: Direction | Zoom,
   classes: string,
 )}
   <button
     type="button"
-    class={classes}
+    class={['flex', 'items-center', 'justify-center', classes]}
     onpointerdown={(event) => void onpointerdown(event, direction)}
-    >{label}</button
   >
+    <Icon />
+  </button>
 {/snippet}
 
 <div class="flex flex-row justify-between gap-1 p-4" inert={!uiState.port}>
@@ -186,28 +193,32 @@
     class="grid grid-cols-[repeat(12,25px)] grid-rows-[100px_100px_100px_50px] gap-1"
   >
     {@render DirectionButton(
-      '\u{2191}',
+      ArrowUp,
       'up',
       'row-start-1 col-start-5 col-span-4',
     )}
     {@render DirectionButton(
-      '\u{2190}',
+      ArrowLeft,
       'left',
       'row-start-2 col-start-1 col-span-4',
     )}
     {@render DirectionButton(
-      '\u{2192}',
+      ArrowRight,
       'right',
       'row-start-2 col-start-9 col-span-4',
     )}
     {@render DirectionButton(
-      '\u{2193}',
+      ArrowDown,
       'down',
       'row-start-3 col-start-5 col-span-4',
     )}
 
-    {@render DirectionButton('-', 'out', 'row-start-4 col-start-2 col-span-2')}
-    {@render DirectionButton('+', 'in', 'row-start-4 col-start-10 col-span-2')}
+    {@render DirectionButton(
+      Minus,
+      'out',
+      'row-start-4 col-start-2 col-span-2',
+    )}
+    {@render DirectionButton(Plus, 'in', 'row-start-4 col-start-10 col-span-2')}
   </section>
 
   <section class="flex flex-col justify-between gap-1">

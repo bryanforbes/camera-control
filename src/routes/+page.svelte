@@ -1,6 +1,7 @@
 <script lang="ts">
   import { commands } from '#lib/bindings.js';
   import { uiState } from '#lib/ui-state.svelte.js';
+  import CircleX from '@lucide/svelte/icons/circle-x';
 
   async function goToPreset(preset: number, name: string) {
     await commands.goToPreset(preset, name);
@@ -60,9 +61,9 @@
 
 <footer class="flex flex-row items-end justify-between gap-1">
   <p class="truncate" {@attach tooltipUpdater}>
-    {#if uiState.status.isError}<span
-        class="mr-0.5 text-red-500 dark:text-red-600">⚠</span
-      >{/if}
+    {#if uiState.status.isError}<CircleX
+        class="mt-1 mb-1 inline-block size-4 align-top text-red-600"
+      />{/if}
     {uiState.status.text}
   </p>
   <button type="button" onclick={() => openSettings()}>Settings</button>
