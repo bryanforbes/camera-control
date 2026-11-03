@@ -26,6 +26,10 @@
     },
     {
       "extends": ["github>bryanforbes/renovate-presets:group-tauri.json5"]
+    },
+    {
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
     }
   ]
 }
