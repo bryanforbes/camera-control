@@ -90,7 +90,10 @@
     padding: 10px;
   }
 
-  :where([inert]) :is(button, select, input[type='checkbox'].toggle) {
-    opacity: 0.4;
+  :is(button, select, input[type='checkbox'].toggle) {
+    :where([inert]) &,
+    &:where([inert]) {
+      opacity: 0.4;
+    }
   }
 }

@@ -45,11 +45,13 @@
   class="grid grid-cols-[auto_1fr_auto] grid-rows-[auto] gap-1"
   inert={!uiState.port}
 >
-  <button type="button" class="col-start-1">Power on</button>
-  <button type="button" class="col-start-1 row-start-2">Power off</button>
+  <button type="button" class="col-start-1" inert>Power on</button>
+  <button type="button" class="col-start-1 row-start-2" inert>Power off</button>
 
-  <button type="button" class="col-start-3">Autofocus on</button>
-  <button type="button" class="col-start-3 row-start-2"> Autofocus off </button>
+  <button type="button" class="col-start-3" inert>Autofocus on</button>
+  <button type="button" class="col-start-3 row-start-2" inert>
+    Autofocus off
+  </button>
 </section>
 
 <section class="flex flex-col gap-1" inert={!uiState.port}>
