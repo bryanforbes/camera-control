@@ -47,18 +47,23 @@ export type Error_Serialize =
   | { type: 'SerialPort' }
   | { type: 'PelcoD' };
 
+export type Status = {
+  text: string;
+  isError: boolean;
+};
+
 export type UIStateEvent = UIStateEvent_Serialize | UIStateEvent_Deserialize;
 
 export type UIStateEvent_Deserialize = {
   port?: string | null;
   ports?: string[] | null;
-  status: string;
+  status: Status;
 };
 
 export type UIStateEvent_Serialize = {
   port: string | null;
   ports: string[] | null;
-  status: string;
+  status: Status;
 };
 
 export type Zoom = 'in' | 'out';

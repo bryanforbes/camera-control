@@ -7,13 +7,14 @@ export interface ReadonlyUIStateEvent extends Readonly<Omit<UIStateEvent_Seriali
 const state: UIStateEvent_Serialize = $state({
   port: null,
   ports: null,
-  status: 'Disconnected',
+  status: { isError: false, text: 'Disconnected' },
 });
 
 function set({ port, ports, status }: UIStateEvent_Serialize) {
   state.port = port;
   state.ports = ports;
-  state.status = status;
+  state.status.isError = status.isError;
+  state.status.text = status.text;
 }
 
 void commands.getState().then(set);

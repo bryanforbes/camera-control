@@ -13,11 +13,48 @@ use crate::{
     pelco_camera::PelcoCamera,
 };
 
+#[derive(Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+#[specta(inline)]
+struct StatusPayload {
+    text: String,
+    is_error: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(into = "StatusPayload")]
+#[specta(type = StatusPayload)]
+pub enum Status {
+    Success(String),
+    Error(String),
+}
+
+impl From<Status> for StatusPayload {
+    fn from(status: Status) -> Self {
+        match status {
+            Status::Success(message) => Self {
+                text: message,
+                is_error: false,
+            },
+            Status::Error(message) => Self {
+                text: message,
+                is_error: true,
+            },
+        }
+    }
+}
+
+impl Default for Status {
+    fn default() -> Self {
+        Status::Success(String::new())
+    }
+}
+
 #[derive(Default)]
 pub struct UIState {
     camera: Option<Box<dyn Camera>>,
     ports: Option<Vec<String>>,
-    status: String,
+    status: Status,
 }
 
 impl UIState {
@@ -54,7 +91,7 @@ impl UIState {
             Err(error) => {
                 error!("Failed to connect to saved port {path}: {error}");
 
-                self.set_status(&format!("Could not open {path}. Connect the camera, then refresh and select its port in Settings."))
+                self.set_error(&format!("Could not open {path}. Connect the camera, then refresh and select its port in Settings."))
             }
         }
     }
@@ -86,7 +123,12 @@ impl UIState {
     }
 
     pub fn set_status(&mut self, status: &str) -> Result<()> {
-        self.status = String::from(status);
+        self.status = Status::Success(String::from(status));
+        Ok(())
+    }
+
+    pub fn set_error(&mut self, error: &str) -> Result<()> {
+        self.status = Status::Error(String::from(error));
         Ok(())
     }
 
@@ -105,11 +147,11 @@ impl UIState {
 pub struct UIStateEvent {
     port: Option<String>,
     ports: Option<Vec<String>>,
-    status: String,
+    status: Status,
 }
 
-impl UIStateEvent {
-    pub fn new(state: &mut UIState) -> Self {
+impl From<&mut UIState> for UIStateEvent {
+    fn from(state: &mut UIState) -> Self {
         Self {
             port: state.camera().ok().and_then(|camera| camera.name()),
             ports: state.ports.clone(),
@@ -125,7 +167,7 @@ impl TryFrom<&tauri::AppHandle> for UIStateEvent {
         let state = app_handle.state::<Mutex<UIState>>();
         let mut state = state.lock().expect("mutext poisoned");
 
-        Ok(UIStateEvent::new(&mut state))
+        Ok(UIStateEvent::from(&mut *state))
     }
 }
 
@@ -140,10 +182,10 @@ where
 
     if let Err(error) = result {
         let status = format!(r#"Error: {error}"#);
-        let _ = state.set_status(&status);
+        let _ = state.set_error(&status);
     }
 
-    let _ = UIStateEvent::new(&mut state).emit(app_handle);
+    let _ = UIStateEvent::from(&mut *state).emit(app_handle);
 }
 
 pub fn with_ui_state_status<T, F>(app_handle: &tauri::AppHandle, status: &str, func: F)

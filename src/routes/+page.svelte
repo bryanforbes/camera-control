@@ -9,6 +9,27 @@
   async function openSettings() {
     await commands.openSettings();
   }
+
+  function tooltipUpdater(node: HTMLElement) {
+    function update() {
+      node.title =
+        node.scrollWidth > node.clientWidth ? uiState.status.text : '';
+    }
+
+    $effect(() => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+      uiState.status.text;
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+      uiState.status.isError;
+
+      update();
+    });
+
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }
 </script>
 
 <svelte:head>
@@ -37,7 +58,12 @@
   {@render PresetButton(4, 'Baptistry')}
 </section>
 
-<footer class="flex flex-row items-end justify-between">
-  <p>{uiState.status}</p>
+<footer class="flex flex-row items-end justify-between gap-1">
+  <p class="truncate" {@attach tooltipUpdater}>
+    {#if uiState.status.isError}<span
+        class="mr-0.5 text-red-500 dark:text-red-600">⚠</span
+      >{/if}
+    {uiState.status.text}
+  </p>
   <button type="button" onclick={() => openSettings()}>Settings</button>
 </footer>
