@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jdx/jactionlint/main/schema/jactionlint-config.json
+profile: default
+
+rules:
+  unpinned-uses:
+    policies:
+      actions/*: ref-pin
+      jdx/mise-action: ref-pin
+      Swatinem/rust-cache: ref-pin
+      tauri-apps/tauri-action: ref-pin

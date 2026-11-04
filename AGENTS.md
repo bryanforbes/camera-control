@@ -8,7 +8,7 @@ Camera Control is a Tauri-based desktop application for controlling AViPAS camer
 - **Backend**: Rust with Tauri 2, providing native camera control via serial port communication
 - **Protocols**: Pelco-D and VISCA camera control protocols
 - **Build System**: Vite for frontend, Cargo for Rust backend
-- **Package Manager**: pnpm (version 10.17.0)
+- **Package Manager**: pnpm, with the version pinned in `mise.toml` and `package.json`
 
 The application is cross-platform, targeting macOS (Universal), Windows, and Linux.
 
@@ -16,26 +16,25 @@ The application is cross-platform, targeting macOS (Universal), Windows, and Lin
 
 ### Prerequisites
 
-- Node.js 26 or later
-- Rust stable toolchain
-- pnpm 12.15.0 (managed via `packageManager` field)
+- mise for managing Node.js, pnpm, Rust, and development tools
 - Platform-specific dependencies:
   - **macOS**: Xcode Command Line Tools
-  - **Linux**: `libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libudev-dev`
+  - **Linux**: `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils libudev-dev`
   - **Windows**: WebView2 (usually pre-installed on Windows 10/11)
 
 ### Initial Setup
 
 ```bash
-# Install frontend dependencies
-pnpm install --frozen-lockfile
+# Install the project's tools
+mise install --locked
 
-# Set up Git hooks
-pnpm prepare
+# On macOS, use this command to include both Rust targets for universal builds
+mise -E macos install --locked
 
-# For macOS universal builds, add targets
-rustup target add aarch64-apple-darwin x86_64-apple-darwin
+# Alternatively, add MISE_ENV=macos to your shell environment for macOS-specific setup
 ```
+
+The mise postinstall hook installs frontend dependencies and runs `hk install --mise`. To reinstall Git hooks separately, run `mise exec -- hk install --mise`.
 
 ## Development Workflow
 
@@ -43,7 +42,7 @@ rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
 ```bash
 # Run the Tauri app in development mode (starts both frontend and backend)
-cargo tauri dev
+mise dev
 
 # Alternative: Run frontend dev server only
 pnpm dev
@@ -82,10 +81,7 @@ The build output goes to `.svelte-kit/` and `build/` directories.
 
 ```bash
 # Build for current platform
-cargo tauri build
-
-# macOS: Build universal binary (Apple Silicon + Intel)
-cargo tauri build --target universal-apple-darwin
+mise build
 ```
 
 Build artifacts are placed in `src-tauri/target/release/`.
@@ -96,10 +92,10 @@ Build artifacts are placed in `src-tauri/target/release/`.
 
 ```bash
 # Run all Rust unit tests
-cargo test --manifest-path src-tauri/Cargo.toml
+mise test
 
 # Run with output visible
-cargo test --manifest-path src-tauri/Cargo.toml -- --nocapture
+mise test -- -- --nocapture
 ```
 
 **Note**: There are no frontend tests currently. Focus on Rust backend tests.
@@ -109,39 +105,40 @@ cargo test --manifest-path src-tauri/Cargo.toml -- --nocapture
 ### Linting Commands
 
 ```bash
-# Run all linters (Prettier, ESLint, Stylelint)
-pnpm lint
+# Run the full hk check suite
+mise lint --all
+
+# Run frontend linters only
+mise lint-frontend --all
+
+# Run backend linters only
+mise lint-backend --all
 
 # Individual linters
-prettier --check .
-eslint .
-stylelint **/*.css
+mise lint --step prettier --all
+mise lint --step eslint --all
+mise lint --step stylelint --all
 
 # Rust linting
-cargo clippy --manifest-path src-tauri/Cargo.toml --no-deps
+mise lint --step clippy --all
 
 # Rust formatting check
-cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+mise lint --step rustfmt --all
 ```
 
 ### Formatting Commands
 
 ```bash
 # Format all files
-prettier --write .
+mist fix --step prettier --all
 
 # Format Rust files
-cargo fmt --manifest-path src-tauri/Cargo.toml
+mise fix --step rustfmt --all
 ```
 
 ### Pre-commit Hooks
 
-The project uses Husky and lint-staged. On commit, the following run automatically:
-
-- ESLint on `.ts`, `.js`, `.cjs`, `.svelte` files (max 0 warnings)
-- Stylelint on `.css` files
-- Prettier on all files
-- Rustfmt on Rust files in `src-tauri/`
+Git hooks are defined in `hk.pkl`. The pre-commit hook runs the configured checks on matching staged files without applying fixes. These include frontend type checking and linting, Rustfmt and Clippy, and checks for GitHub Actions and Pkl files. The commit-msg hook runs Commitlint.
 
 ### Code Style Guidelines
 
@@ -178,27 +175,26 @@ The project uses Husky and lint-staged. On commit, the following run automatical
 
 - Triggers on push to `master` and PRs
 - Runs on macOS, Ubuntu, and Windows
-- Steps:
-  1. Rust clippy linting (macOS only)
-  2. Frontend type checking with `pnpm check` (macOS only)
-  3. Frontend linting with `pnpm lint` (macOS only)
-  4. Rust unit tests (all platforms)
-  5. Tauri build (all platforms)
+- Runs the full hk check suite with `mise lint --all` on Ubuntu
+- Runs Rust unit tests with `mise test` and builds the Tauri app on all three platforms
+- Caches verified mise downloads, the pnpm store, and Cargo dependencies and build artifacts
 
 **Release Workflow** (`.github/workflows/release.yaml`):
 
 - Handles versioning and releases
-- Creates signed builds for distribution
+- Creates signed builds for distribution on `v*` tag pushes with GitHub Actions caching disabled
+
+Both workflows use `jdx/mise-action` to install tools from the committed mise configuration. They load the `ci` environment to skip local hooks and use the Tauri CLI from the pnpm dependencies. macOS jobs also load the `macos` environment for both Rust targets.
 
 ### Running CI Checks Locally
 
 ```bash
-# Replicate macOS CI checks
-cargo clippy --manifest-path src-tauri/Cargo.toml --no-deps
-pnpm check
-pnpm lint
-cargo test --manifest-path src-tauri/Cargo.toml
-cargo tauri build
+mise lint --all
+mise test
+mise build
+
+# On macOS, build the universal app
+mise -E macos build
 ```
 
 ## Commit Guidelines
@@ -233,13 +229,11 @@ Commits are validated using `@commitlint/config-conventional`.
 
 Before submitting a PR:
 
-1. **Run linting**: `pnpm lint`
-2. **Run type checking**: `pnpm check`
-3. **Run Rust linting**: `cargo clippy --manifest-path src-tauri/Cargo.toml --no-deps`
-4. **Run tests**: `cargo test --manifest-path src-tauri/Cargo.toml`
-5. **Ensure builds**: `cargo tauri build` (or at minimum `pnpm build`)
+1. Run linting and type checking with `mise lint --all`.
+2. Run tests with `mise test`.
+3. Verify the desktop build with `mise build` or at minimum the frontend build with `pnpm build`.
 
-All checks must pass before merging. The macOS CI runner performs the most comprehensive checks.
+All checks must pass before merging.
 
 ## Project Structure
 
@@ -318,7 +312,7 @@ cargo update --manifest-path src-tauri/Cargo.toml
 pnpm exec svelte-kit sync
 
 # Clean and reinstall
-rm -rf node_modules .svelte-kit && pnpm install
+rm -rf node_modules .svelte-kit && mise install
 ```
 
 ### Development Tips

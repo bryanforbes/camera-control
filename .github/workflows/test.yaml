@@ -13,12 +13,13 @@ on:
   pull_request:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   dependency-review:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     if: github.event_name == 'pull_request'
     permissions:
       contents: read
@@ -35,30 +36,30 @@ jobs:
         platform: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - platform: macos-latest
-            rust-targets: 'aarch64-apple-darwin, x86_64-apple-darwin'
             tauri-args: '--target universal-apple-darwin'
 
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 30
+
+    env:
+      MISE_ENV: ${{ matrix.platform == 'macos-latest' && 'ci,macos' || 'ci' }}
+
     steps:
       - uses: actions/checkout@v7.0.1
 
       - name: Setup pnpm and Rust Environment
         uses: './.github/actions/setup-pnpm-rust'
         with:
-          rust-targets: ${{ matrix.rust-targets }}
           runner-platform: ${{ matrix.platform }}
-          github-ref: ${{ github.ref }}
 
-      - name: Lint files (macOS only)
-        if: startsWith(matrix.platform, 'macos-')
+      - name: Lint files (ubuntu only)
+        if: startsWith(matrix.platform, 'ubuntu-')
         run: |
-          cargo clippy --manifest-path src-tauri/Cargo.toml --no-deps
-          pnpm check
-          pnpm lint
+          mise lint --all
 
       - name: Run unit tests
         run: |
-          cargo test --manifest-path src-tauri/Cargo.toml
+          mise test
 
       - uses: tauri-apps/tauri-action@v1.0.0
         env:
@@ -66,4 +67,5 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
+          tauriScript: 'pnpm tauri'
           args: ${{ matrix.tauri-args }}
