@@ -1,0 +1,4 @@
+[settings]
+auto_install_disable_tools = ["cargo:tauri-cli"]
+disable_tools = ["cargo:tauri-cli"]
+no_hooks = true

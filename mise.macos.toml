@@ -2,5 +2,6 @@
 tauri_target = "universal-apple-darwin"
 
 [tools.rust]
-version = "{{ vars.rust_version }}"
+version = "stable"
+components = ["clippy"]
 targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]

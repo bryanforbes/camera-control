@@ -1,17 +1,19 @@
-[vars]
-rust_version = "stable"
-
 [tools]
-"cargo:tauri-cli" = "latest"
-node = "26"
-pnpm = "latest"
+"cargo:tauri-cli" = "2.12.4"
+hk = { version = "2.11.0", workflow = "release.yml" }
+jactionlint = { version = "2.4.0", workflow = "release.yaml" }
+node = "26.13.0"
+pkl = "0.32.2"
+pnpm = "12.16.1"
 
 [tools.rust]
-version = "{{ vars.rust_version }}"
+version = "stable"
+components = ["clippy"]
 
 [hooks]
 postinstall = '''
 mise run pnpm-install
+hk install --mise
 '''
 
 [env]
@@ -32,3 +34,26 @@ description = "Initialize node modules"
 run = 'pnpm install'
 sources = ['package.json', 'pnpm-lock.yaml', 'mise.toml']
 outputs = ['node_modules/.pnpm/lock.yaml']
+
+[tasks.lint]
+description = "Lint code"
+depends = ["pnpm-install"]
+run = 'hk check'
+
+[tasks.lint-frontend]
+description = "Lint frontend code"
+depends = ["pnpm-install"]
+run = 'hk check --profile frontend'
+
+[tasks.lint-backend]
+description = "Lint backend code"
+run = 'hk check --profile backend'
+
+[tasks.fix]
+description = "Fix code"
+depends = ["pnpm-install"]
+run = 'hk fix'
+
+[tasks.test]
+description = "Run tests"
+run = 'cargo test --manifest-path src-tauri/Cargo.toml'

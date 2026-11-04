@@ -1,0 +1,101 @@
+amends "package://github.com/jdx/hk/releases/download/v2.11.0/hk@2.11.0#/Config.pkl"
+
+import "package://github.com/jdx/hk/releases/download/v2.11.0/hk@2.11.0#/Builtins.pkl"
+// Using a coding agent? See https://hk.jdx.dev/agents
+
+local function withProfiles(
+  steps: Mapping<String, Step>,
+  extra: List<String>,
+): Mapping<String, Step> = new Mapping {
+  for (name, step in steps) {
+    [name] = (step) {
+      profiles = (step.profiles ?? List()) + extra
+    }
+  }
+}
+
+local commitlint = new Step {
+  check = new CommandSpec {
+    command = "commitlint --edit {{commit_msg_file}}"
+    effect = "read"
+  }
+}
+
+local svelte_kit_sync = new Step {
+  glob = List("src/**/*.ts", "src/**/*.svelte")
+  check = new CommandSpec {
+    command = "svelte-kit sync"
+    effect = "read"
+  }
+}
+
+local svelte_check = new Step {
+  glob = List("src/**/*.ts", "src/**/*.svelte")
+  check = new CommandSpec {
+    command = "svelte-check --tsconfig ./tsconfig.json"
+    effect = "read"
+  }
+  depends = List("sveltekit-sync")
+}
+
+local frontend = new Mapping {
+  ["sveltekit-sync"] = svelte_kit_sync
+  ["eslint"] = (Builtins.eslint) {
+    glob = List("**/*.js", "**/*.ts", "**/*.cjs", "**/*.svelte")
+    depends = List("sveltekit-sync")
+    check = new Command {
+      argv = List("eslint", "--max-warnings=0", "--no-warn-ignored", "{{files}}")
+    }
+  }
+  ["svelte-check"] = svelte_check
+  ["prettier"] = Builtins.prettier
+  ["stylelint"] = Builtins.stylelint
+}
+
+local backend = new Mapping {
+  ["rustfmt"] = (Builtins.rustfmt) {
+    check = new Command {
+      argv = List("rustfmt", "--check", "{{files}}")
+    }
+    check_list_files = new Command {
+      argv = List("rustfmt", "--check", "--files-with-diff", "{{files}}")
+    }
+    fix = new Command {
+      argv = List("rustfmt", "{{files}}")
+    }
+  }
+  ["clippy"] = Builtins.cargo_clippy
+}
+
+local other = new Mapping {
+  ["jactionlint"] = Builtins.jactionlint
+
+  ["pkl"] = Builtins.pkl
+  ["pkl-format"] = Builtins.pkl_format
+}
+
+local linters = new Mapping {
+  ...withProfiles(frontend, List("!backend"))
+  ...withProfiles(backend, List("!frontend"))
+  ...withProfiles(other, List("!frontend", "!backend"))
+}
+
+hooks {
+  ["pre-commit"] {
+    fix = false
+    stash = "git"
+    steps = linters
+  }
+  ["commit-msg"] {
+    steps {
+      ["commitlint"] = commitlint
+    }
+  }
+  ["fix"] {
+    fix = true
+    steps = linters
+  }
+  ["check"] {
+    steps = linters
+  }
+}

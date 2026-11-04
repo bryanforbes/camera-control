@@ -11,7 +11,6 @@
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri",
     "lint": "prettier --check . && eslint . && stylelint **/*.css",
-    "prepare": "husky",
     "preinstall": "npx only-allow pnpm"
   },
   "imports": {
@@ -46,8 +45,6 @@
     "eslint-plugin-svelte": "3.23.1",
     "eslint-plugin-unicorn": "79.0.0",
     "globals": "17.13.0",
-    "husky": "9.1.7",
-    "lint-staged": "17.6.0",
     "prettier": "3.9.10",
     "prettier-plugin-organize-imports": "4.3.0",
     "prettier-plugin-svelte": "4.1.1",

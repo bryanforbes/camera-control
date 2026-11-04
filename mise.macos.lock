@@ -8,4 +8,5 @@ backend = "core:rust"
 specifiers = ["stable"]
 
 [tools.rust.options]
+components = "clippy"
 targets = "aarch64-apple-darwin,x86_64-apple-darwin"

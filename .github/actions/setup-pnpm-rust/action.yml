@@ -1,36 +1,40 @@
 name: 'Setup pnpm and Rust Environment'
 description: 'Set up pnpm and Rust environment for building and testing'
 inputs:
-  rust-targets:
-    description: 'Comma-separated list of Rust targets to install'
-    required: false
-    default: ''
   runner-platform:
     description: 'The platform of the runner (e.g., ubuntu-latest, macos-latest, windows-latest)'
-    required: true
-  github-ref:
-    description: 'The GitHub ref (branch or tag) for conditional caching'
     required: true
 runs:
   using: 'composite'
   steps:
-    - name: Install Rust stable
-      uses: dtolnay/rust-toolchain@stable
+    - name: Cache verified mise downloads
+      uses: actions/cache@v6
+      if: github.ref_type != 'tag'
       with:
-        targets: ${{ inputs.rust-targets }}
-        components: 'clippy'
+        path: ${{ runner.temp }}/mise-cache/downloads-cas
+        key: mise-downloads-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.lock', 'mise.macos.lock') }}
 
-    - uses: pnpm/action-setup@v6.1.1
-      name: Install pnpm
-      id: pnpm-install
+    - name: Set up tools with mise
+      uses: jdx/mise-action@v5
+      env:
+        MISE_CACHE_DIR: ${{ runner.temp }}/mise-cache
       with:
-        run_install: false
+        cache: false
 
-    - name: Setup node
-      uses: actions/setup-node@v7.1.0
+    - name: Locate pnpm store
+      if: github.ref_type != 'tag'
+      id: pnpm-store
+      shell: bash
+      run: |
+        store_path="$(pnpm store path)"
+        printf 'path=%s\n' "${store_path%$'\r'}" >> "$GITHUB_OUTPUT"
+
+    - name: Cache pnpm store
+      uses: actions/cache@v6
+      if: github.ref_type != 'tag'
       with:
-        node-version: 26
-        cache: 'pnpm'
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'mise.lock') }}
 
     - name: Install dependencies (ubuntu only)
       if: startsWith(inputs.runner-platform, 'ubuntu-')
@@ -39,13 +43,15 @@ runs:
         sudo apt-get update
         sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils libudev-dev
 
-    - uses: Swatinem/rust-cache@v2.9.3
+    - uses: Swatinem/rust-cache@v2.9.3 # jactionlint ignore=cache-poisoning
       name: Set up Rust cache
+      if: github.ref_type != 'tag'
       with:
         workspaces: './src-tauri -> target'
         key: ${{ inputs.runner-platform }}
-        save-if: ${{ inputs.github-ref == 'refs/heads/master' }}
+        save-if: ${{ github.ref == 'refs/heads/master' }}
+        cache-bin: 'false'
 
     - name: Install frontend dependencies
       shell: bash
-      run: pnpm install --frozen-lockfile
+      run: mise pnpm-install --frozen-lockfile

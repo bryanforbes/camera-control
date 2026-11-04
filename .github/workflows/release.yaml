@@ -1,9 +1,15 @@
 name: release
 run-name: Release ${{ github.ref_name }}
+cache-mode: none
 on:
   push:
     tags:
       - 'v*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+  queue: max
 
 jobs:
   release:
@@ -15,19 +21,21 @@ jobs:
         platform: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - platform: macos-latest
-            rust-targets: 'aarch64-apple-darwin, x86_64-apple-darwin'
             tauri-args: '--target universal-apple-darwin'
 
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 30
+
+    env:
+      MISE_ENV: ${{ matrix.platform == 'macos-latest' && 'ci,macos' || 'ci' }}
+
     steps:
       - uses: actions/checkout@v7.0.1
 
       - name: Setup pnpm and Rust Environment
         uses: './.github/actions/setup-pnpm-rust'
         with:
-          rust-targets: ${{ matrix.rust-targets }}
           runner-platform: ${{ matrix.platform }}
-          github-ref: ${{ github.ref }}
 
       - uses: tauri-apps/tauri-action@v1.0.0
         env:
@@ -35,6 +43,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
+          tauriScript: 'pnpm tauri'
           args: ${{ matrix.tauri-args }}
           tagName: ${{ github.ref_name }}
           releaseName: 'v__VERSION__'
