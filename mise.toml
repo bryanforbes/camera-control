@@ -1,0 +1,34 @@
+[vars]
+rust_version = "stable"
+
+[tools]
+"cargo:tauri-cli" = "latest"
+node = "26"
+pnpm = "latest"
+
+[tools.rust]
+version = "{{ vars.rust_version }}"
+
+[hooks]
+postinstall = '''
+mise run pnpm-install
+'''
+
+[env]
+_.path = ['./node_modules/.bin']
+
+[tasks.dev]
+description = "Run the Tauri development server"
+depends = ["pnpm-install"]
+run = 'cargo tauri dev'
+
+[tasks.build]
+description = "Build the Tauri application"
+depends = ["pnpm-install"]
+run = 'cargo tauri build{% if vars.tauri_target is defined %} --target {{ vars.tauri_target }}{% endif %}'
+
+[tasks.pnpm-install]
+description = "Initialize node modules"
+run = 'pnpm install'
+sources = ['package.json', 'pnpm-lock.yaml', 'mise.toml']
+outputs = ['node_modules/.pnpm/lock.yaml']
