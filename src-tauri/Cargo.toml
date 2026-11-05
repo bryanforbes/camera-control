@@ -31,6 +31,8 @@ tauri-specta = { version = "=2.0.0-rc.26", features = ["derive", "typescript"] }
 deku = { version = "=0.20.3", optional = true }
 
 [dev-dependencies]
+tauri = { version = "=2.12.5", features = ["test"] }
+tempfile = "=3.27.0"
 test-case = "=3.4.1"
 
 [features]

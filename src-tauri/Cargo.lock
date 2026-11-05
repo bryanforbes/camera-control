@@ -449,6 +449,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tauri-plugin-window-state",
  "tauri-specta",
+ "tempfile",
  "test-case",
  "thiserror 2.0.21",
 ]
