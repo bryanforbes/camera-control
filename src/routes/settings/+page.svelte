@@ -52,7 +52,7 @@
 
     const cleanup: (() => void)[] = [];
     let isFinished = false;
-    let started = Promise.resolve();
+    let started = Promise.resolve(null);
 
     async function stopAfterStart() {
       try {

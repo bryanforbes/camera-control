@@ -28,6 +28,8 @@ pelcodrs = "=0.2.1"
 specta = "=2.0.0-rc.26"
 specta-typescript = "=0.0.13"
 tauri-specta = { version = "=2.0.0-rc.26", features = ["derive", "typescript"] }
+tokio = "=1.54.1"
+uuid = { version = "=1.29.0", features = ["v4"] }
 deku = { version = "=0.20.3", optional = true }
 
 [dev-dependencies]

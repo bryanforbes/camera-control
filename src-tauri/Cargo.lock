@@ -452,6 +452,8 @@ dependencies = [
  "tempfile",
  "test-case",
  "thiserror 2.0.21",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

@@ -11,11 +11,14 @@ mod ui_state;
 #[cfg(feature = "visca")]
 mod visca;
 
-use std::sync::Mutex;
-
-use crate::error::Result;
-
-use camera::{Direction, Zoom};
+use crate::{
+    camera::{CameraEvent, CameraHandle, Direction, PendingMotionResult, Zoom},
+    error::Result,
+    ui_state::{
+        CameraEventSenderState, PortChangeLock, UIState, UIStateEvent, initialize_ui_state,
+        publish_camera_event, set_ui_state_session, shutdown_ui_state, with_ui, with_ui_emit,
+    },
+};
 use log::debug;
 #[cfg(target_os = "macos")]
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
@@ -23,19 +26,19 @@ use tauri::{Manager, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 use tauri_plugin_window_state::StateFlags;
-use ui_state::{UIState, UIStateEvent, with_ui_state, with_ui_state_status};
+use tokio::sync::mpsc;
 
-fn open_settings_window(app_handle: &tauri::AppHandle) -> Result<()> {
-    if let Some(window) = app_handle.get_webview_window("settings") {
+fn open_settings_window(app: &tauri::AppHandle) -> Result<()> {
+    if let Some(window) = app.get_webview_window("settings") {
         window.set_focus()?;
-    } else if let Some(config) = app_handle
+    } else if let Some(config) = app
         .config()
         .app
         .windows
         .iter()
         .find(|item| item.label == "settings")
     {
-        tauri::WebviewWindowBuilder::from_config(app_handle, config)?.build()?;
+        tauri::WebviewWindowBuilder::from_config(app, config)?.build()?;
     }
     Ok(())
 }
@@ -44,26 +47,28 @@ fn open_settings_window(app_handle: &tauri::AppHandle) -> Result<()> {
 // https://tauri.app/v1/guides/features/multiwindow#create-a-window-using-an-apphandle-instance
 #[tauri::command]
 #[specta::specta]
-async fn open_settings(app_handle: tauri::AppHandle) -> Result<()> {
-    with_ui_state(&app_handle, |ui| ui.refresh_ports());
-    open_settings_window(&app_handle)
+async fn open_settings(app: tauri::AppHandle) -> Result<()> {
+    let _ = with_ui_emit(&app, |ui| ui.refresh_ports());
+    open_settings_window(&app)
 }
 
 #[tauri::command]
 #[specta::specta]
-fn get_state(app_handle: tauri::AppHandle) -> Result<UIStateEvent> {
-    UIStateEvent::try_from(&app_handle)
+fn get_state(app: tauri::AppHandle) -> Result<UIStateEvent> {
+    with_ui(&app, |ui| Ok(UIStateEvent::from(&*ui)))
 }
 
 #[tauri::command]
 #[specta::specta]
-fn set_port(app_handle: tauri::AppHandle, port_name: Option<&str>) {
+async fn set_port(app: tauri::AppHandle, port_name: Option<&str>) -> Result<()> {
     debug!("Port name: {port_name:?}");
 
-    with_ui_state(&app_handle, |ui| ui.set_camera_port(&app_handle, port_name))
+    set_ui_state_session(&app, port_name).await?;
+
+    Ok(())
 }
 
-#[tauri::command]
+/*#[tauri::command]
 #[specta::specta]
 fn camera_power(app_handle: tauri::AppHandle, power: bool) {
     debug!("Power: {:?}", power);
@@ -81,9 +86,9 @@ fn camera_power(app_handle: tauri::AppHandle, power: bool) {
             }
         },
     )
-}
+}*/
 
-#[tauri::command]
+/*#[tauri::command]
 #[specta::specta]
 fn autofocus(app_handle: tauri::AppHandle, autofocus: bool) {
     with_ui_state_status(
@@ -95,77 +100,97 @@ fn autofocus(app_handle: tauri::AppHandle, autofocus: bool) {
         },
         |ui| ui.camera()?.autofocus(autofocus),
     )
-}
+}*/
 
 #[tauri::command]
 #[specta::specta]
-fn go_to_preset(app_handle: tauri::AppHandle, preset: u8, name: &str) {
+async fn go_to_preset(app: tauri::AppHandle, preset: u8, name: &str) -> Result<()> {
     debug!("Go To Preset: {}", preset);
 
-    with_ui_state_status(&app_handle, name, |ui| ui.camera()?.go_to_preset(preset));
+    let camera = with_ui(&app, |ui| ui.camera())?;
+    camera.recall_preset(preset, name).await.map(|_| ())?;
+    Ok(())
 }
 
 #[tauri::command]
 #[specta::specta]
-fn set_preset(app_handle: tauri::AppHandle, preset: u8, name: &str) {
+async fn set_preset(app: tauri::AppHandle, preset: u8, name: &str) -> Result<()> {
     debug!("Set Preset: {}", preset);
 
-    let status = format!("Set {name}");
-    with_ui_state_status(&app_handle, &status, |ui| ui.camera()?.set_preset(preset));
+    let camera = with_ui(&app, |ui| ui.camera())?;
+    camera.set_preset(preset, name).await.map(|_| ())?;
+    Ok(())
+}
+
+async fn handle_motion(
+    app: &tauri::AppHandle,
+    do_motion: impl FnOnce(&CameraHandle) -> PendingMotionResult,
+) -> Result<()> {
+    with_ui(app, |ui| ui.start_motion(do_motion))?
+        .wait()
+        .await
+        .map(|_| ())?;
+    Ok(())
+}
+
+async fn handle_stop_motion(app: &tauri::AppHandle) -> Result<()> {
+    let motion = with_ui(app, |ui| Ok(ui.take_motion()))?;
+
+    let Some(motion) = motion else {
+        return Ok(());
+    };
+
+    motion.stop().await.map(|_| ())?;
+    Ok(())
 }
 
 #[tauri::command]
 #[specta::specta]
-fn move_camera(app_handle: tauri::AppHandle, direction: Direction) {
+async fn move_camera(app: tauri::AppHandle, direction: Direction) -> Result<()> {
     debug!("Direction: {}", direction);
 
-    let status = format!("Moving {direction}");
-    with_ui_state_status(&app_handle, &status, |ui| ui.camera()?.pan_tilt(direction))
+    handle_motion(&app, |camera| camera.pan_tilt(direction)).await
 }
 
 #[tauri::command]
 #[specta::specta]
-fn stop_move(app_handle: tauri::AppHandle) {
+async fn stop_move(app: tauri::AppHandle) -> Result<()> {
     debug!("Stop Move");
 
-    with_ui_state_status(&app_handle, "Done moving", |ui| ui.camera()?.stop())
+    handle_stop_motion(&app).await
 }
 
 #[tauri::command]
 #[specta::specta]
-fn zoom(app_handle: tauri::AppHandle, direction: Zoom) {
+async fn zoom(app: tauri::AppHandle, direction: Zoom) -> Result<()> {
     debug!("Zoom: {}", direction);
 
-    let status = format!("Zooming {direction}");
-    with_ui_state_status(&app_handle, &status, |ui| {
-        let camera = ui.camera()?;
+    handle_motion(&app, |camera| camera.zoom(direction)).await
+}
 
-        camera.zoom(direction)
+#[tauri::command]
+#[specta::specta]
+async fn stop_zoom(app: tauri::AppHandle) -> Result<()> {
+    debug!("Stop Zoom");
+
+    handle_stop_motion(&app).await
+}
+
+#[tauri::command]
+#[specta::specta]
+fn refresh_ports(app: tauri::AppHandle) {
+    debug!("Refreshing ports");
+
+    let _ = with_ui_emit(&app, |ui| {
+        ui.refresh_ports()?;
+        ui.set_status("Ports refreshed");
+        Ok(())
     });
 }
 
-#[tauri::command]
-#[specta::specta]
-fn stop_zoom(app_handle: tauri::AppHandle) {
-    debug!("Stop Zoom");
-
-    with_ui_state_status(&app_handle, "Done zooming", |ui| ui.camera()?.stop());
-}
-
-#[tauri::command]
-#[specta::specta]
-fn refresh_ports(app_handle: tauri::AppHandle) {
-    debug!("Refreshing ports");
-
-    with_ui_state_status(&app_handle, "Ports refreshed", |ui| ui.refresh_ports());
-}
-
-fn stop_camera_before_exit(app_handle: &tauri::AppHandle) {
-    with_ui_state(app_handle, |ui| {
-        if let Ok(camera) = ui.camera() {
-            camera.stop()?;
-        }
-        Ok(())
+fn stop_camera_before_exit(app: &tauri::AppHandle) {
+    tauri::async_runtime::block_on(shutdown_ui_state(app)).unwrap_or_else(|error| {
+        log::error!("Failed to stop camera motion before exit: {error}");
     });
 }
 
@@ -186,8 +211,8 @@ fn main() {
             open_settings,
             get_state,
             set_port,
-            camera_power,
-            autofocus,
+            // camera_power,
+            // autofocus,
             go_to_preset,
             set_preset,
             move_camera,
@@ -246,12 +271,18 @@ fn main() {
             );
     }
 
+    let (events_tx, mut events_rx) = mpsc::unbounded_channel::<CameraEvent>();
+
     let app = tauri_builder
-        .manage(Mutex::new(UIState::default()))
+        .manage(UIState::app_state())
+        .manage(PortChangeLock::default())
+        .manage(CameraEventSenderState::new(events_tx))
         .invoke_handler(specta_builder.invoke_handler())
         .on_window_event(|window, event| match event {
             WindowEvent::CloseRequested { .. } => {
-                stop_camera_before_exit(window.app_handle());
+                if window.label() == "main" {
+                    stop_camera_before_exit(window.app_handle());
+                }
             }
             WindowEvent::Destroyed if window.label() == "main" => {
                 window.app_handle().exit(0);
@@ -261,7 +292,24 @@ fn main() {
         .setup(move |app| {
             specta_builder.mount_events(app);
 
-            with_ui_state(app.app_handle(), |ui| ui.initialize(app.handle()));
+            let handle = app.handle().clone();
+
+            tauri::async_runtime::spawn(async move {
+                while let Some(event) = events_rx.recv().await {
+                    let _ = publish_camera_event(&handle, event);
+                }
+            });
+
+            let handle = app.handle();
+
+            if let Err(error) = tauri::async_runtime::block_on(initialize_ui_state(handle)) {
+                log::error!("Failed to initialize UI state: {error}");
+
+                let _ = with_ui_emit(handle, |ui| {
+                    ui.set_error(&format!("Could not connect to camera: {error}"));
+                    Ok(())
+                });
+            }
 
             #[cfg(target_os = "macos")]
             {
@@ -323,9 +371,9 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    app.run(|app_handle, event| {
+    app.run(|app, event| {
         if let tauri::RunEvent::ExitRequested { .. } = event {
-            stop_camera_before_exit(app_handle);
+            stop_camera_before_exit(app);
         }
     });
 }

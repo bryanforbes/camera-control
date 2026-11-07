@@ -1,17 +1,18 @@
-use std::sync::Mutex;
-
-use log::{debug, error};
-use serde::Serialize;
-use specta::Type;
-use tauri::Manager;
-use tauri_plugin_store::StoreExt;
-use tauri_specta::Event;
-
 use crate::{
-    camera::Camera,
+    camera::{
+        CameraAction, CameraEvent, CameraEventSender, CameraHandle, CameraMotion, CameraSession,
+        CameraSessionBuilder, CameraSessionResult, CommandOutcome, CommandResponse, MotionHandle,
+        PendingMotion, PendingMotionResult, SessionId,
+    },
     error::{Error, Result},
     pelco_camera::PelcoCamera,
 };
+use serde::Serialize;
+use specta::Type;
+use std::sync::Mutex;
+use tauri::Manager;
+use tauri_plugin_store::StoreExt;
+use tauri_specta::Event;
 
 #[derive(Serialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -52,109 +53,51 @@ impl Default for Status {
 
 #[derive(Default)]
 pub struct UIState {
-    camera: Option<Box<dyn Camera>>,
+    session: Option<CameraSession>,
+    motion: Option<MotionHandle>,
     ports: Option<Vec<String>>,
     status: Status,
-}
-
-fn open_camera(path: &str) -> Result<Box<dyn Camera>> {
-    Ok(Box::new(PelcoCamera::new(path)?))
+    exiting: bool,
 }
 
 impl UIState {
-    fn set_camera(
+    pub fn app_state() -> Mutex<Self> {
+        Mutex::new(Self::default())
+    }
+
+    pub fn session_id(&self) -> Option<SessionId> {
+        self.session.as_ref().map(|session| session.id())
+    }
+
+    pub fn camera(&self) -> Result<CameraHandle> {
+        self.session
+            .as_ref()
+            .map(CameraSession::handle)
+            .ok_or(Error::NoPortSet)
+    }
+
+    pub fn take_motion(&mut self) -> Option<MotionHandle> {
+        self.motion.take()
+    }
+
+    pub fn start_motion(
         &mut self,
-        path: Option<&str>,
-        open: impl FnOnce(&str) -> Result<Box<dyn Camera>>,
-    ) -> Result<()> {
-        debug!("{path:?}");
+        do_motion: impl FnOnce(&CameraHandle) -> PendingMotionResult,
+    ) -> Result<CommandResponse> {
+        let camera = self.camera()?;
+        let PendingMotion { motion, response } = do_motion(&camera)?;
 
-        if let Some(camera) = self.camera.as_mut()
-            && let Err(error) = camera.stop()
-        {
-            error!("Failed to stop camera before changing ports: {error}");
-        }
+        self.motion = Some(motion);
 
-        // Drop the previous camera implicitly before setting a new one
-        self.camera = None;
-
-        if let Some(path) = path {
-            self.camera = Some(open(path)?);
-        }
-
-        Ok(())
+        Ok(response)
     }
 
-    pub fn initialize<R: tauri::Runtime>(&mut self, app: &tauri::AppHandle<R>) -> Result<()> {
-        self.initialize_with(app, open_camera)
-    }
-
-    fn initialize_with<R: tauri::Runtime>(
-        &mut self,
-        app: &tauri::AppHandle<R>,
-        open: impl FnOnce(&str) -> Result<Box<dyn Camera>>,
-    ) -> Result<()> {
-        let store = app.store("config.json")?;
-        let saved_port = store.get("port");
-        store.close_resource();
-
-        let Some(path) = saved_port.as_ref().and_then(|value| value.as_str()) else {
-            return self.set_status("Disconnected");
-        };
-
-        match self.set_camera(Some(path), open) {
-            Ok(()) => self.set_status("Connected"),
-            Err(error) => {
-                error!("Failed to connect to saved port {path}: {error}");
-
-                self.set_error(&format!("Could not open {path}. Connect the camera, then refresh and select its port in Settings."))
-            }
-        }
-    }
-
-    pub fn camera(&mut self) -> Result<&mut dyn Camera> {
-        let camera = self.camera.as_mut().ok_or(Error::NoPortSet)?;
-        Ok(camera.as_mut())
-    }
-
-    pub fn set_camera_port<R: tauri::Runtime>(
-        &mut self,
-        app_handle: &tauri::AppHandle<R>,
-        path: Option<&str>,
-    ) -> Result<()> {
-        self.set_camera_port_with(app_handle, path, open_camera)
-    }
-
-    fn set_camera_port_with<R: tauri::Runtime>(
-        &mut self,
-        app_handle: &tauri::AppHandle<R>,
-        path: Option<&str>,
-        open: impl FnOnce(&str) -> Result<Box<dyn Camera>>,
-    ) -> Result<()> {
-        self.set_camera(path, open)?;
-
-        let store = app_handle.store("config.json")?;
-        store.set("port", path);
-        store.save()?;
-        store.close_resource();
-
-        if self.camera.is_some() {
-            self.set_status("Connected")?;
-        } else {
-            self.set_status("Disconnected")?;
-        }
-
-        Ok(())
-    }
-
-    pub fn set_status(&mut self, status: &str) -> Result<()> {
+    pub fn set_status(&mut self, status: &str) {
         self.status = Status::Success(String::from(status));
-        Ok(())
     }
 
-    pub fn set_error(&mut self, error: &str) -> Result<()> {
+    pub fn set_error(&mut self, error: &str) {
         self.status = Status::Error(String::from(error));
-        Ok(())
     }
 
     pub fn refresh_ports(&mut self) -> Result<()> {
@@ -170,6 +113,8 @@ impl UIState {
     }
 }
 
+pub type AppUIState = Mutex<UIState>;
+
 #[derive(Debug, Clone, Serialize, Type, Event)]
 pub struct UIStateEvent {
     port: Option<String>,
@@ -177,166 +122,358 @@ pub struct UIStateEvent {
     status: Status,
 }
 
-impl From<&mut UIState> for UIStateEvent {
-    fn from(state: &mut UIState) -> Self {
+impl From<&UIState> for UIStateEvent {
+    fn from(state: &UIState) -> Self {
         Self {
-            port: state.camera().ok().and_then(|camera| camera.name()),
+            port: state
+                .session
+                .as_ref()
+                .and_then(|session| session.name())
+                .map(|name| name.to_owned()),
             ports: state.ports.clone(),
             status: state.status.clone(),
         }
     }
 }
 
-impl<R: tauri::Runtime> TryFrom<&tauri::AppHandle<R>> for UIStateEvent {
-    type Error = crate::error::Error;
-
-    fn try_from(app_handle: &tauri::AppHandle<R>) -> Result<Self> {
-        let state = app_handle.state::<Mutex<UIState>>();
-        let mut state = state.lock().expect("mutext poisoned");
-
-        Ok(UIStateEvent::from(&mut *state))
-    }
-}
-
-pub fn with_ui_state<R: tauri::Runtime, T, F>(app_handle: &tauri::AppHandle<R>, func: F)
+pub fn with_ui<R: tauri::Runtime, T, F>(app: &tauri::AppHandle<R>, op: F) -> Result<T>
 where
     F: FnOnce(&mut UIState) -> Result<T>,
 {
-    let state = app_handle.state::<Mutex<UIState>>();
-    let mut state = state.lock().expect("mutext poisoned");
+    let state = app.state::<AppUIState>();
+    let mut ui = state.lock().expect("mutext poisoned");
 
-    let result = func(&mut state);
-
-    if let Err(error) = result {
-        let status = format!(r#"Error: {error}"#);
-        let _ = state.set_error(&status);
-    }
-
-    let _ = UIStateEvent::from(&mut *state).emit(app_handle);
+    op(&mut ui)
 }
 
-pub fn with_ui_state_status<R: tauri::Runtime, T, F>(
-    app_handle: &tauri::AppHandle<R>,
-    status: &str,
-    func: F,
-) where
+pub fn with_ui_emit<R: tauri::Runtime, T, F>(app: &tauri::AppHandle<R>, op: F) -> Result<T>
+where
     F: FnOnce(&mut UIState) -> Result<T>,
 {
-    with_ui_state(app_handle, |ui| {
-        func(ui)?;
-        ui.set_status(status)
+    with_ui(app, |ui| {
+        let result = op(ui);
+
+        if let Err(error) = &result {
+            ui.set_error(&format!(r#"Error: {error}"#));
+        }
+
+        let _ = UIStateEvent::from(&*ui).emit(app);
+
+        result
     })
+}
+
+fn status_for(action: &CameraAction, outcome: &CommandOutcome) -> String {
+    match action {
+        CameraAction::RecallPreset(_, preset) => match outcome {
+            CommandOutcome::Sent => format!("Recalling preset {preset}"),
+            CommandOutcome::Completed => format!("Recalled preset {preset}"),
+            CommandOutcome::Superceded => format!("Preset {preset} recall superceded"),
+        },
+        CameraAction::SetPreset(_, preset) => match outcome {
+            CommandOutcome::Sent => format!("Setting preset {preset}"),
+            CommandOutcome::Completed => format!("Set preset {preset}"),
+            CommandOutcome::Superceded => format!("Preset {preset} set superceded"),
+        },
+        CameraAction::Motion(motion) => match motion {
+            CameraMotion::PanTilt(direction) => match outcome {
+                CommandOutcome::Sent | CommandOutcome::Completed => format!("Moving {direction}"),
+                CommandOutcome::Superceded => format!("Moving {direction} superceded"),
+            },
+            CameraMotion::Zoom(zoom) => match outcome {
+                CommandOutcome::Sent | CommandOutcome::Completed => format!("Zooming {zoom}"),
+                CommandOutcome::Superceded => format!("Zooming {zoom} superceded"),
+            },
+        },
+        CameraAction::StopMotion => match outcome {
+            CommandOutcome::Sent | CommandOutcome::Completed | CommandOutcome::Superceded => {
+                "Done moving".into()
+            }
+        },
+    }
+}
+
+pub fn publish_camera_event<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    event: CameraEvent,
+) -> Result<()> {
+    with_ui(app, |ui| {
+        if ui.session_id() != Some(event.session()) {
+            return Ok(());
+        }
+
+        match event.result() {
+            Ok(CommandOutcome::Superceded) => return Ok(()),
+            Ok(outcome) => {
+                ui.set_status(&status_for(event.action(), outcome));
+            }
+            Err(error) => {
+                ui.set_error(error);
+            }
+        }
+
+        let _ = UIStateEvent::from(&*ui).emit(app);
+        Ok(())
+    })
+}
+
+#[derive(Default)]
+pub struct PortChangeLock {
+    mutex: tokio::sync::Mutex<()>,
+}
+
+pub async fn set_ui_state_session<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    path: Option<&str>,
+) -> Result<()> {
+    set_ui_state_session_with(app, path, async |path| open_session(app, path).await).await
+}
+
+pub type CameraEventSenderState = Mutex<CameraEventSender>;
+
+async fn open_session<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    path: &str,
+) -> CameraSessionResult {
+    let events_tx_state = app.state::<CameraEventSenderState>();
+    let events_tx = events_tx_state.lock().expect("mutex poisoned").clone();
+    CameraSessionBuilder::new(path, events_tx)
+        .open(PelcoCamera::from_serial_port)
+        .await
+}
+
+async fn set_ui_state_session_with<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    path: Option<&str>,
+    open: impl AsyncFnOnce(&str) -> CameraSessionResult,
+) -> Result<()> {
+    let port_changes = app.state::<PortChangeLock>();
+    let _port_change_guard = port_changes.mutex.lock().await;
+
+    let state = app.state::<AppUIState>();
+
+    let old_session = {
+        let mut ui = state.lock().expect("mutex poisoned");
+
+        if ui.exiting {
+            return Ok(());
+        }
+
+        ui.motion = None;
+        ui.session.take()
+    };
+
+    if let Some(session) = old_session {
+        session.shutdown().await?;
+    }
+
+    let new_session = match path {
+        Some(path) => Some(open(path).await?),
+        None => None,
+    };
+
+    {
+        let mut ui = state.lock().expect("mutex poisoned");
+        ui.session = new_session;
+    }
+
+    let store = app.store("config.json")?;
+    store.set("port", path);
+    store.save()?;
+    store.close_resource();
+
+    {
+        let mut ui = state.lock().expect("mutex poisoned");
+        let connected = ui.session.is_some();
+
+        ui.set_status(if connected {
+            "Connected"
+        } else {
+            "Disconnected"
+        });
+        let _ = UIStateEvent::from(&*ui).emit(app);
+    }
+
+    Ok(())
+}
+
+pub async fn initialize_ui_state<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<()> {
+    initialize_ui_state_with(app, async |path| open_session(app, path).await).await
+}
+
+async fn initialize_ui_state_with<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    open: impl AsyncFnOnce(&str) -> CameraSessionResult,
+) -> Result<()> {
+    let store = app.store("config.json")?;
+
+    let path = store
+        .get("port")
+        .and_then(|value| value.as_str().map(str::to_owned));
+
+    store.close_resource();
+
+    set_ui_state_session_with(app, path.as_deref(), open).await
+}
+
+pub async fn shutdown_ui_state<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<()> {
+    let port_changes = app.state::<PortChangeLock>();
+    let _port_change_guard = port_changes.mutex.lock().await;
+
+    let state = app.state::<AppUIState>();
+
+    let session = {
+        let mut ui = state.lock().expect("mutex poisoned");
+        ui.exiting = true;
+        ui.motion = None;
+        ui.session.take()
+    };
+
+    if let Some(session) = session {
+        session.shutdown().await?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::camera::{Direction, Zoom};
+    use crate::camera::Error as CameraError;
+    use crate::camera::{
+        CameraAction, CameraSessionAdapter, CommandOutcome, CommandResult, Direction,
+    };
     use serde_json::{Value, json, to_value};
     use serialport::{SerialPortInfo, SerialPortType};
-    use std::{fs, path::Path, sync::Arc};
+    use std::{
+        fs,
+        path::Path,
+        sync::Arc,
+        task::{Context, Poll, Waker},
+        time::Duration,
+    };
     use tauri::{
         Listener,
         test::{MockRuntime, mock_builder, mock_context, noop_assets},
     };
     use test_case::test_case;
+    use tokio::sync::{mpsc, oneshot};
 
-    struct FakeCamera {
+    type Calls = Arc<Mutex<Vec<String>>>;
+
+    struct FakeAdapter {
         name: String,
-        calls: Arc<Mutex<Vec<&'static str>>>,
-        fail_stop: bool,
+        calls: Calls,
+        fail_close: bool,
+        close_gate: Option<(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>)>,
     }
 
-    impl FakeCamera {
-        fn new(name: &str) -> Self {
+    impl FakeAdapter {
+        fn new(name: &str, calls: &Calls) -> Self {
             Self {
                 name: name.into(),
-                calls: Arc::default(),
-                fail_stop: false,
+                calls: calls.clone(),
+                fail_close: false,
+                close_gate: None,
             }
         }
+
+        fn record(&self, action: &str) {
+            self.calls
+                .lock()
+                .unwrap()
+                .push(format!("{action}:{}", self.name));
+        }
     }
 
-    impl Drop for FakeCamera {
+    impl Drop for FakeAdapter {
         fn drop(&mut self) {
-            self.calls.lock().unwrap().push("drop");
+            self.record("drop");
         }
     }
 
-    impl Camera for FakeCamera {
-        fn new(_: &str) -> Result<Self> {
-            unreachable!("inject the fake camera directly")
-        }
-
+    impl CameraSessionAdapter for FakeAdapter {
         fn name(&self) -> Option<String> {
             Some(self.name.clone())
         }
-
-        fn stop(&mut self) -> Result<()> {
-            self.calls.lock().unwrap().push("stop");
-            if self.fail_stop {
+        fn handle_action(&mut self, _: &CameraAction) -> CommandResult {
+            self.record("action");
+            Ok(CommandOutcome::Completed)
+        }
+        fn stop_motion(&mut self) -> crate::camera::Result<()> {
+            Ok(())
+        }
+        fn close(&mut self) -> crate::camera::Result<()> {
+            self.record("close");
+            if let Some((entered, release)) = self.close_gate.take() {
+                entered.send(()).unwrap();
+                release.recv_timeout(Duration::from_secs(5)).unwrap();
+            }
+            if self.fail_close {
                 Err(std::io::Error::from(std::io::ErrorKind::BrokenPipe).into())
             } else {
                 Ok(())
             }
         }
+    }
 
-        fn power_on(&mut self) -> Result<()> {
-            unreachable!()
-        }
+    async fn open_adapter(adapter: FakeAdapter) -> CameraSessionResult {
+        let path = adapter.name.clone();
+        let (events, _received) = mpsc::unbounded_channel();
+        CameraSessionBuilder::new(path, events)
+            .open_with_adapter(move |path| {
+                assert_eq!(path, adapter.name);
+                adapter.record("open");
+                Ok(adapter)
+            })
+            .await
+    }
 
-        fn power_off(&mut self) -> Result<()> {
-            unreachable!()
-        }
+    async fn open_fake(path: &str, calls: &Calls) -> CameraSessionResult {
+        open_adapter(FakeAdapter::new(path, calls)).await
+    }
 
-        fn autofocus(&mut self, _: bool) -> Result<()> {
-            unreachable!()
-        }
-
-        fn zoom(&mut self, _: Zoom) -> Result<()> {
-            unreachable!()
-        }
-
-        fn pan_tilt(&mut self, _: Direction) -> Result<()> {
-            unreachable!()
-        }
-
-        fn set_preset(&mut self, _: u8) -> Result<()> {
-            unreachable!()
-        }
-
-        fn go_to_preset(&mut self, _: u8) -> Result<()> {
-            unreachable!()
-        }
+    fn run(future: impl Future<Output = ()>) {
+        tauri::async_runtime::block_on(async {
+            tokio::time::timeout(Duration::from_secs(5), future)
+                .await
+                .expect("test timed out");
+        });
     }
 
     fn mock_app(data_dir: &Path) -> tauri::App<MockRuntime> {
         let mut context = mock_context(noop_assets());
-
         context.config_mut().app.app_directories_override =
             serde_json::from_value(json!({ "data": data_dir })).unwrap();
-
         let app = mock_builder()
             .plugin(tauri_plugin_store::Builder::default().build())
-            .manage(Mutex::new(UIState::default()))
+            .manage(UIState::app_state())
+            .manage(PortChangeLock::default())
             .build(context)
             .unwrap();
-
         tauri_specta::Builder::new()
             .events(tauri_specta::collect_events![UIStateEvent])
             .mount_events(&app);
-
         app
     }
 
     fn snapshot(state: &mut UIState) -> Value {
-        to_value(UIStateEvent::from(state)).unwrap()
+        to_value(UIStateEvent::from(&*state)).unwrap()
+    }
+
+    fn app_snapshot(app: &tauri::AppHandle<MockRuntime>) -> Value {
+        to_value(with_ui(app, |ui| Ok(UIStateEvent::from(&*ui))).unwrap()).unwrap()
+    }
+
+    fn saved_port(dir: &Path) -> Value {
+        let config: Value =
+            serde_json::from_slice(&fs::read(dir.join("config.json")).unwrap()).unwrap();
+        config["port"].clone()
     }
 
     #[test]
     fn default_state_has_no_camera_or_port_list() {
         let mut state = UIState::default();
-
         assert!(matches!(state.camera(), Err(Error::NoPortSet)));
         assert_eq!(
             snapshot(&mut state),
@@ -346,66 +483,27 @@ mod tests {
 
     #[test]
     fn snapshot_owns_its_port_list_and_status() {
-        let mut state = UIState {
-            camera: Some(Box::new(FakeCamera::new("selected"))),
-            ports: Some(vec!["selected".into(), "other".into()]),
-            ..UIState::default()
-        };
-        state.set_error("Movement failed").unwrap();
-        let event = UIStateEvent::from(&mut state);
-
-        state.ports = Some(vec![]);
-        state.set_status("Ready").unwrap();
-
-        assert_eq!(
-            to_value(event).unwrap(),
-            json!({
-                "port": "selected",
-                "ports": ["selected", "other"],
-                "status": {"text": "Movement failed", "isError": true}
-            })
-        );
-        assert_eq!(
-            snapshot(&mut state),
-            json!({"port": "selected", "ports": [], "status": {"text": "Ready", "isError": false}})
-        );
-    }
-
-    #[test_case(false; "stop succeeds")]
-    #[test_case(true; "stop fails")]
-    fn disconnect_stops_and_drops_camera(fail_stop: bool) {
-        let mut camera = FakeCamera::new("old");
-        camera.fail_stop = fail_stop;
-        let calls = Arc::clone(&camera.calls);
-        let mut state = UIState {
-            camera: Some(Box::new(camera)),
-            ..UIState::default()
-        };
-
-        state.set_camera(None, |_| unreachable!()).unwrap();
-
-        assert_eq!(*calls.lock().unwrap(), ["stop", "drop"]);
-        assert!(matches!(state.camera(), Err(Error::NoPortSet)));
-    }
-
-    #[test]
-    fn replacement_opens_after_previous_camera_is_stopped_and_dropped() {
-        let old = FakeCamera::new("old");
-        let calls = Arc::clone(&old.calls);
-        let mut state = UIState {
-            camera: Some(Box::new(old)),
-            ..UIState::default()
-        };
-
-        state
-            .set_camera(Some("new"), |path| {
-                assert_eq!(path, "new");
-                assert_eq!(*calls.lock().unwrap(), ["stop", "drop"]);
-                Ok(Box::new(FakeCamera::new(path)))
-            })
-            .unwrap();
-
-        assert_eq!(state.camera().unwrap().name().as_deref(), Some("new"));
+        run(async {
+            let calls = Calls::default();
+            let mut state = UIState {
+                session: Some(open_fake("selected", &calls).await.unwrap()),
+                ports: Some(vec!["selected".into(), "other".into()]),
+                ..UIState::default()
+            };
+            state.set_error("Movement failed");
+            let event = UIStateEvent::from(&state);
+            state.ports = Some(vec![]);
+            state.set_status("Ready");
+            state.session.take().unwrap().shutdown().await.unwrap();
+            assert_eq!(
+                to_value(event).unwrap(),
+                json!({"port":"selected", "ports":["selected","other"], "status":{"text":"Movement failed","isError":true}})
+            );
+            assert_eq!(
+                snapshot(&mut state),
+                json!({"port":null, "ports":[], "status":{"text":"Ready","isError":false}})
+            );
+        });
     }
 
     #[test]
@@ -445,172 +543,639 @@ mod tests {
     #[test_case(json!({"port": null}); "null port")]
     #[test_case(json!({"port": 42}); "non-string port")]
     fn initialize_without_saved_path_is_disconnected(config: Value) {
-        let dir = tempfile::tempdir().unwrap();
-
-        fs::write(dir.path().join("config.json"), config.to_string()).unwrap();
-
-        let app = mock_app(dir.path());
-        let mut state = UIState::default();
-
-        state
-            .initialize_with(app.handle(), |_| unreachable!())
-            .unwrap();
-
-        assert!(matches!(state.camera(), Err(Error::NoPortSet)));
-        assert_eq!(
-            snapshot(&mut state)["status"],
-            json!({"text": "Disconnected", "isError": false})
-        );
+        run(async {
+            let dir = tempfile::tempdir().unwrap();
+            fs::write(dir.path().join("config.json"), config.to_string()).unwrap();
+            let app = mock_app(dir.path());
+            initialize_ui_state_with(app.handle(), async |_| panic!("must not open a port"))
+                .await
+                .unwrap();
+            assert_eq!(
+                app_snapshot(app.handle()),
+                json!({"port":null,"ports":null,"status":{"text":"Disconnected","isError":false}})
+            );
+        });
     }
 
     #[test_case(false; "opens saved port")]
     #[test_case(true; "saved port fails to open")]
     fn initialize_from_saved_path(fail_open: bool) {
-        let dir = tempfile::tempdir().unwrap();
-
-        fs::write(dir.path().join("config.json"), r#"{"port":"saved"}"#).unwrap();
-
-        let app = mock_app(dir.path());
-        let mut state = UIState::default();
-
-        state
-            .initialize_with(app.handle(), |path| {
+        run(async {
+            let dir = tempfile::tempdir().unwrap();
+            fs::write(dir.path().join("config.json"), r#"{"port":"saved"}"#).unwrap();
+            let app = mock_app(dir.path());
+            let calls = Calls::default();
+            let result = initialize_ui_state_with(app.handle(), async |path| {
                 assert_eq!(path, "saved");
                 if fail_open {
-                    Err(
-                        serialport::Error::new(serialport::ErrorKind::NoDevice, "missing port")
-                            .into(),
-                    )
+                    Err(CameraError::Io(std::io::ErrorKind::NotFound.into()))
                 } else {
-                    Ok(Box::new(FakeCamera::new(path)))
+                    open_fake(path, &calls).await
                 }
             })
-            .unwrap();
-
-        let event = snapshot(&mut state);
-
-        if fail_open {
-            assert_eq!(event["port"], Value::Null);
-            assert_eq!(
-                event["status"],
-                json!({
-                    "text": "Could not open saved. Connect the camera, then refresh and select its port in Settings.",
-                    "isError": true
-                })
-            );
-        } else {
-            assert_eq!(event["port"], "saved");
-            assert_eq!(
-                event["status"],
-                json!({"text": "Connected", "isError": false})
-            );
-        }
-    }
-
-    fn saved_port(dir: &Path) -> Value {
-        let contents = fs::read(dir.join("config.json")).unwrap();
-        let config: Value = serde_json::from_slice(&contents).unwrap();
-
-        config.get("port").expect("store contains port key").clone()
+            .await;
+            if fail_open {
+                assert!(
+                    matches!(result, Err(Error::Camera(CameraError::Io(error))) if error.kind() == std::io::ErrorKind::NotFound)
+                );
+                assert_eq!(app_snapshot(app.handle())["port"], Value::Null);
+            } else {
+                result.unwrap();
+                assert_eq!(app_snapshot(app.handle())["port"], "saved");
+                assert_eq!(
+                    app_snapshot(app.handle())["status"],
+                    json!({"text":"Connected","isError":false})
+                );
+            }
+            assert_eq!(saved_port(dir.path()), "saved");
+            shutdown_ui_state(app.handle()).await.unwrap();
+        });
     }
 
     #[test]
-    fn setting_and_clearing_port_persists_the_selection() {
-        let dir = tempfile::tempdir().unwrap();
-        let app = mock_app(dir.path());
-        let mut state = UIState::default();
-
-        state
-            .set_camera_port_with(app.handle(), Some("selected"), |path| {
-                Ok(Box::new(FakeCamera::new(path)))
+    fn replacement_closes_and_drops_old_adapter_before_opening_and_persists_selection() {
+        run(async {
+            let dir = tempfile::tempdir().unwrap();
+            let app = mock_app(dir.path());
+            let calls = Calls::default();
+            for path in ["old", "new"] {
+                set_ui_state_session_with(app.handle(), Some(path), async |path| {
+                    open_fake(path, &calls).await
+                })
+                .await
+                .unwrap();
+                assert_eq!(saved_port(dir.path()), path);
+                assert_eq!(app_snapshot(app.handle())["port"], path);
+            }
+            assert_eq!(
+                *calls.lock().unwrap(),
+                ["open:old", "close:old", "drop:old", "open:new"]
+            );
+            set_ui_state_session_with(app.handle(), None, async |_| {
+                panic!("disconnect must not open")
             })
+            .await
             .unwrap();
-
-        assert_eq!(saved_port(dir.path()), "selected");
-        assert_eq!(
-            snapshot(&mut state)["status"],
-            json!({"text": "Connected", "isError": false})
-        );
-
-        state.set_camera_port(app.handle(), None).unwrap();
-
-        assert_eq!(saved_port(dir.path()), Value::Null);
-        assert!(matches!(state.camera(), Err(Error::NoPortSet)));
-        assert_eq!(
-            snapshot(&mut state)["status"],
-            json!({"text": "Disconnected", "isError": false})
-        );
+            assert_eq!(saved_port(dir.path()), Value::Null);
+            assert_eq!(
+                app_snapshot(app.handle()),
+                json!({"port":null,"ports":null,"status":{"text":"Disconnected","isError":false}})
+            );
+            assert_eq!(
+                *calls.lock().unwrap(),
+                [
+                    "open:old",
+                    "close:old",
+                    "drop:old",
+                    "open:new",
+                    "close:new",
+                    "drop:new"
+                ]
+            );
+        });
     }
 
     #[test]
     fn failed_replacement_disconnects_without_overwriting_saved_port() {
-        let dir = tempfile::tempdir().unwrap();
-
-        fs::write(dir.path().join("config.json"), r#"{"port":"old"}"#).unwrap();
-
-        let app = mock_app(dir.path());
-        let mut state = UIState {
-            camera: Some(Box::new(FakeCamera::new("old"))),
-            ..UIState::default()
-        };
-
-        let result = state.set_camera_port_with(app.handle(), Some("missing"), |_| {
-            Err(serialport::Error::new(serialport::ErrorKind::NoDevice, "missing port").into())
+        run(async {
+            let dir = tempfile::tempdir().unwrap();
+            let app = mock_app(dir.path());
+            let calls = Calls::default();
+            set_ui_state_session_with(app.handle(), Some("old"), async |path| {
+                open_fake(path, &calls).await
+            })
+            .await
+            .unwrap();
+            let result = set_ui_state_session_with(app.handle(), Some("missing"), async |_| {
+                Err(CameraError::Io(std::io::ErrorKind::NotFound.into()))
+            })
+            .await;
+            assert!(
+                matches!(result, Err(Error::Camera(CameraError::Io(error))) if error.kind() == std::io::ErrorKind::NotFound)
+            );
+            assert_eq!(app_snapshot(app.handle())["port"], Value::Null);
+            assert_eq!(saved_port(dir.path()), "old");
+            assert_eq!(
+                *calls.lock().unwrap(),
+                ["open:old", "close:old", "drop:old"]
+            );
         });
+    }
 
-        assert!(matches!(result, Err(Error::SerialPort(_))));
-        assert!(matches!(state.camera(), Err(Error::NoPortSet)));
-        assert_eq!(saved_port(dir.path()), "old");
+    #[test_case(None; "disconnect")]
+    #[test_case(Some("new"); "replacement")]
+    fn close_failure_drops_adapter_and_prevents_replacement(path: Option<&str>) {
+        run(async {
+            let dir = tempfile::tempdir().unwrap();
+            fs::write(dir.path().join("config.json"), r#"{"port":"old"}"#).unwrap();
+            let app = mock_app(dir.path());
+            let calls = Calls::default();
+            let mut adapter = FakeAdapter::new("old", &calls);
+            adapter.fail_close = true;
+            let session = open_adapter(adapter).await.unwrap();
+            with_ui(app.handle(), |ui| {
+                ui.session = Some(session);
+                Ok(())
+            })
+            .unwrap();
+            let result = set_ui_state_session_with(app.handle(), path, async |_| {
+                panic!("close failure must prevent opening")
+            })
+            .await;
+            assert!(
+                matches!(result, Err(Error::Camera(CameraError::Io(error))) if error.kind() == std::io::ErrorKind::BrokenPipe)
+            );
+            assert_eq!(app_snapshot(app.handle())["port"], Value::Null);
+            assert_eq!(saved_port(dir.path()), "old");
+            assert_eq!(
+                *calls.lock().unwrap(),
+                ["open:old", "close:old", "drop:old"]
+            );
+        });
     }
 
     #[test]
-    fn set_camera_port_returns_store_save_failure() {
-        let dir = tempfile::tempdir().unwrap();
-
-        fs::create_dir(dir.path().join("config.json")).unwrap();
-
-        let app = mock_app(dir.path());
-        let mut state = UIState::default();
-
-        let result = state.set_camera_port_with(app.handle(), Some("selected"), |path| {
-            Ok(Box::new(FakeCamera::new(path)))
+    fn set_session_returns_store_failure() {
+        run(async {
+            let dir = tempfile::tempdir().unwrap();
+            fs::create_dir(dir.path().join("config.json")).unwrap();
+            let app = mock_app(dir.path());
+            let calls = Calls::default();
+            let result = set_ui_state_session_with(app.handle(), Some("selected"), async |path| {
+                open_fake(path, &calls).await
+            })
+            .await;
+            assert!(matches!(result, Err(Error::Store(_))));
+            assert_eq!(app_snapshot(app.handle())["port"], "selected");
+            shutdown_ui_state(app.handle()).await.unwrap();
         });
+    }
 
-        assert!(matches!(result, Err(Error::Store(_))));
-        assert_eq!(
-            snapshot(&mut state)["status"],
-            json!({"text": "", "isError": false})
-        );
+    #[test]
+    fn shutdown_failure_still_drops_session_and_blocks_reopening() {
+        run(async {
+            let dir = tempfile::tempdir().unwrap();
+            let app = mock_app(dir.path());
+            let calls = Calls::default();
+            let mut adapter = FakeAdapter::new("old", &calls);
+            adapter.fail_close = true;
+            let session = open_adapter(adapter).await.unwrap();
+            with_ui(app.handle(), |ui| {
+                ui.session = Some(session);
+                Ok(())
+            })
+            .unwrap();
+            assert!(matches!(
+                shutdown_ui_state(app.handle()).await,
+                Err(Error::Camera(CameraError::Io(error))) if error.kind() == std::io::ErrorKind::BrokenPipe
+            ));
+            with_ui(app.handle(), |ui| {
+                assert!(ui.exiting);
+                assert!(ui.session.is_none());
+                Ok(())
+            })
+            .unwrap();
+            set_ui_state_session_with(app.handle(), Some("new"), async |_| {
+                panic!("must not reopen")
+            })
+            .await
+            .unwrap();
+            shutdown_ui_state(app.handle()).await.unwrap();
+            assert_eq!(
+                *calls.lock().unwrap(),
+                ["open:old", "close:old", "drop:old"]
+            );
+        });
+    }
+
+    #[test_case(false; "disconnect")]
+    #[test_case(true; "shutdown")]
+    fn ending_session_clears_motion_and_invalidates_old_camera_handle(shutdown: bool) {
+        run(async {
+            let dir = tempfile::tempdir().unwrap();
+            let app = mock_app(dir.path());
+            let calls = Calls::default();
+            set_ui_state_session_with(app.handle(), Some("old"), async |path| {
+                open_fake(path, &calls).await
+            })
+            .await
+            .unwrap();
+            let camera = with_ui(app.handle(), |ui| ui.camera()).unwrap();
+            let started = with_ui(app.handle(), |ui| {
+                ui.start_motion(|camera| camera.pan_tilt(Direction::Up))
+            })
+            .unwrap();
+            assert!(matches!(
+                started.wait().await.unwrap(),
+                CommandOutcome::Completed
+            ));
+            with_ui(app.handle(), |ui| {
+                assert!(ui.motion.is_some());
+                Ok(())
+            })
+            .unwrap();
+            if shutdown {
+                shutdown_ui_state(app.handle()).await.unwrap();
+            } else {
+                set_ui_state_session_with(app.handle(), None, async |_| panic!("must not open"))
+                    .await
+                    .unwrap();
+            }
+            with_ui(app.handle(), |ui| {
+                assert!(ui.motion.is_none());
+                assert!(matches!(ui.camera(), Err(Error::NoPortSet)));
+                Ok(())
+            })
+            .unwrap();
+            assert!(camera.pan_tilt(Direction::Down).is_err());
+            assert_eq!(
+                *calls.lock().unwrap(),
+                ["open:old", "action:old", "close:old", "drop:old"]
+            );
+        });
+    }
+
+    #[test]
+    fn overlapping_switches_are_serialized_without_holding_ui_mutex() {
+        run(async {
+            let dir = tempfile::tempdir().unwrap();
+            let app = mock_app(dir.path());
+            let calls = Calls::default();
+            let (release, released) = oneshot::channel();
+            let first = set_ui_state_session_with(app.handle(), Some("first"), async |path| {
+                released.await.unwrap();
+                open_fake(path, &calls).await
+            });
+            let second = set_ui_state_session_with(app.handle(), Some("second"), async |path| {
+                open_fake(path, &calls).await
+            });
+            let mut first = std::pin::pin!(first);
+            let mut second = std::pin::pin!(second);
+            let mut cx = Context::from_waker(Waker::noop());
+            assert!(matches!(first.as_mut().poll(&mut cx), Poll::Pending));
+            assert!(matches!(second.as_mut().poll(&mut cx), Poll::Pending));
+            assert!(calls.lock().unwrap().is_empty());
+            let state = app.state::<AppUIState>();
+            assert!(state.try_lock().is_ok(), "UI mutex held while opening");
+
+            release.send(()).unwrap();
+            first.await.unwrap();
+            second.await.unwrap();
+            assert_eq!(
+                *calls.lock().unwrap(),
+                ["open:first", "close:first", "drop:first", "open:second"]
+            );
+            assert_eq!(saved_port(dir.path()), "second");
+            assert_eq!(app_snapshot(app.handle())["port"], "second");
+            shutdown_ui_state(app.handle()).await.unwrap();
+        });
+    }
+
+    #[test]
+    fn shutdown_waits_for_in_flight_switch_then_closes_new_session() {
+        run(async {
+            let dir = tempfile::tempdir().unwrap();
+            let app = mock_app(dir.path());
+            let calls = Calls::default();
+            let (release, released) = oneshot::channel();
+            let switching = set_ui_state_session_with(app.handle(), Some("new"), async |path| {
+                released.await.unwrap();
+                open_fake(path, &calls).await
+            });
+            let shutdown = shutdown_ui_state(app.handle());
+            let mut switching = std::pin::pin!(switching);
+            let mut shutdown = std::pin::pin!(shutdown);
+            let mut cx = Context::from_waker(Waker::noop());
+            assert!(matches!(switching.as_mut().poll(&mut cx), Poll::Pending));
+            assert!(matches!(shutdown.as_mut().poll(&mut cx), Poll::Pending));
+            release.send(()).unwrap();
+            switching.await.unwrap();
+            shutdown.await.unwrap();
+            with_ui(app.handle(), |ui| {
+                assert!(ui.exiting);
+                assert!(ui.session.is_none());
+                Ok(())
+            })
+            .unwrap();
+            assert_eq!(
+                *calls.lock().unwrap(),
+                ["open:new", "close:new", "drop:new"]
+            );
+            assert_eq!(saved_port(dir.path()), "new");
+            // Shutdown is idempotent and must preserve the saved selection.
+            shutdown_ui_state(app.handle()).await.unwrap();
+            assert_eq!(calls.lock().unwrap().len(), 3);
+        });
+    }
+
+    #[test]
+    fn switch_waiting_behind_shutdown_cannot_reopen_port() {
+        run(async {
+            let dir = tempfile::tempdir().unwrap();
+            fs::write(dir.path().join("config.json"), r#"{"port":"old"}"#).unwrap();
+            let app = mock_app(dir.path());
+            let calls = Calls::default();
+            let (entered, closing) = oneshot::channel();
+            let (release, released) = std::sync::mpsc::channel();
+            let mut adapter = FakeAdapter::new("old", &calls);
+            adapter.close_gate = Some((entered, released));
+            let session = open_adapter(adapter).await.unwrap();
+            with_ui(app.handle(), |ui| {
+                ui.session = Some(session);
+                Ok(())
+            })
+            .unwrap();
+
+            let shutdown = shutdown_ui_state(app.handle());
+            let switching = set_ui_state_session_with(app.handle(), Some("new"), async |_| {
+                panic!("must not open after shutdown")
+            });
+            let mut shutdown = std::pin::pin!(shutdown);
+            let mut switching = std::pin::pin!(switching);
+            let mut cx = Context::from_waker(Waker::noop());
+            assert!(matches!(shutdown.as_mut().poll(&mut cx), Poll::Pending));
+            closing.await.unwrap();
+            assert!(matches!(switching.as_mut().poll(&mut cx), Poll::Pending));
+            let state = app.state::<AppUIState>();
+            assert!(state.try_lock().is_ok(), "UI mutex held while closing");
+            release.send(()).unwrap();
+            shutdown.await.unwrap();
+            switching.await.unwrap();
+            assert_eq!(
+                *calls.lock().unwrap(),
+                ["open:old", "close:old", "drop:old"]
+            );
+            assert_eq!(saved_port(dir.path()), "old");
+            assert_eq!(app_snapshot(app.handle())["port"], Value::Null);
+        });
     }
 
     #[test]
     fn state_wrappers_emit_success_and_error_snapshots() {
         let dir = tempfile::tempdir().unwrap();
         let app = mock_app(dir.path());
-        let handle = app.handle();
         let payloads = Arc::new(Mutex::new(Vec::new()));
-        let received = Arc::clone(&payloads);
-
+        let received = payloads.clone();
         app.listen(UIStateEvent::NAME, move |event| {
-            let payload: Value = serde_json::from_str(event.payload()).unwrap();
-            received.lock().unwrap().push(payload);
+            received
+                .lock()
+                .unwrap()
+                .push(serde_json::from_str::<Value>(event.payload()).unwrap());
         });
-
-        with_ui_state_status(handle, "Ready", |_| Ok(()));
-        with_ui_state_status(handle, "Moved", |state| state.camera()?.stop());
-
+        with_ui_emit(app.handle(), |ui| {
+            ui.set_status("Ready");
+            Ok(())
+        })
+        .unwrap();
+        let result: Result<()> = with_ui_emit(app.handle(), |_| Err(Error::NoPortSet));
+        assert!(matches!(result, Err(Error::NoPortSet)));
         let payloads = payloads.lock().unwrap();
-
         assert_eq!(
             *payloads,
             [
-                json!({"port": null, "ports": null, "status": {"text": "Ready", "isError": false}}),
-                json!({"port": null, "ports": null, "status": {"text": "Error: No port set", "isError": true}})
+                json!({"port":null,"ports":null,"status":{"text":"Ready","isError":false}}),
+                json!({"port":null,"ports":null,"status":{"text":"Error: No port set","isError":true}})
             ]
         );
-        assert_eq!(
-            to_value(UIStateEvent::try_from(handle).unwrap()).unwrap(),
-            payloads[1]
-        );
+        assert_eq!(app_snapshot(app.handle()), payloads[1]);
+    }
+
+    mod event_publication {
+        use super::*;
+        use crate::camera::{CameraEvent, CameraMotion, Direction, Zoom};
+        use test_case::test_case;
+
+        struct EventAdapter {
+            name: String,
+            outcome: Option<CommandOutcome>,
+        }
+
+        impl CameraSessionAdapter for EventAdapter {
+            fn name(&self) -> Option<String> {
+                Some(self.name.clone())
+            }
+            fn handle_action(&mut self, _: &CameraAction) -> CommandResult {
+                self.outcome.clone().ok_or_else(|| {
+                    CameraError::Protocol(Box::new(std::io::Error::other(
+                        "simulated command failure",
+                    )))
+                })
+            }
+            fn stop_motion(&mut self) -> crate::camera::Result<()> {
+                Ok(())
+            }
+            fn close(&mut self) -> crate::camera::Result<()> {
+                Ok(())
+            }
+        }
+
+        async fn session_and_event(
+            action: CameraAction,
+            outcome: Option<CommandOutcome>,
+        ) -> (CameraSession, CameraEvent) {
+            let (events, mut received) = mpsc::unbounded_channel();
+            let session = CameraSessionBuilder::new("selected", events)
+                .open_with_adapter(move |path| {
+                    Ok(EventAdapter {
+                        name: path.into(),
+                        outcome,
+                    })
+                })
+                .await
+                .unwrap();
+            let handle = session.handle();
+            match action {
+                CameraAction::RecallPreset(number, name) => {
+                    let _ = handle.recall_preset(number, &name).await;
+                }
+                CameraAction::SetPreset(number, name) => {
+                    let _ = handle.set_preset(number, &name).await;
+                }
+                CameraAction::Motion(CameraMotion::PanTilt(direction)) => {
+                    let PendingMotion {
+                        motion: _,
+                        response: started,
+                    } = handle.pan_tilt(direction).unwrap();
+                    let _ = started.wait().await;
+                }
+                CameraAction::Motion(CameraMotion::Zoom(direction)) => {
+                    let PendingMotion {
+                        motion: _,
+                        response: started,
+                    } = handle.zoom(direction).unwrap();
+                    let _ = started.wait().await;
+                }
+                CameraAction::StopMotion => {
+                    let PendingMotion {
+                        motion,
+                        response: started,
+                    } = handle.zoom(Zoom::In).unwrap();
+                    let _ = started.wait().await;
+                    received.recv().await.unwrap();
+                    let _ = motion.stop().await;
+                }
+            }
+            (session, received.recv().await.unwrap())
+        }
+
+        fn install_session(app: &tauri::AppHandle<MockRuntime>, session: CameraSession) {
+            with_ui(app, |ui| {
+                ui.session = Some(session);
+                ui.ports = Some(vec!["selected".into(), "other".into()]);
+                ui.set_status("Ready");
+                Ok(())
+            })
+            .unwrap();
+        }
+
+        fn listen(app: &tauri::App<MockRuntime>) -> Arc<Mutex<Vec<Value>>> {
+            let payloads = Arc::new(Mutex::new(Vec::new()));
+            let received = payloads.clone();
+            app.listen(UIStateEvent::NAME, move |event| {
+                received
+                    .lock()
+                    .unwrap()
+                    .push(serde_json::from_str(event.payload()).unwrap());
+            });
+            payloads
+        }
+
+        #[test_case(CameraAction::RecallPreset(7, "Stage".into()), CommandOutcome::Sent, "Recalling preset Stage"; "recall_sent")]
+        #[test_case(CameraAction::RecallPreset(7, "Stage".into()), CommandOutcome::Completed, "Recalled preset Stage"; "recall_completed")]
+        #[test_case(CameraAction::SetPreset(7, "Lectern".into()), CommandOutcome::Sent, "Setting preset Lectern"; "save_sent")]
+        #[test_case(CameraAction::SetPreset(7, "Lectern".into()), CommandOutcome::Completed, "Set preset Lectern"; "save_completed")]
+        #[test_case(CameraAction::Motion(CameraMotion::PanTilt(Direction::Left)), CommandOutcome::Sent, "Moving left"; "pan_sent")]
+        #[test_case(CameraAction::Motion(CameraMotion::PanTilt(Direction::Left)), CommandOutcome::Completed, "Moving left"; "pan_completed")]
+        #[test_case(CameraAction::Motion(CameraMotion::Zoom(Zoom::In)), CommandOutcome::Sent, "Zooming in"; "zoom_in_sent")]
+        #[test_case(CameraAction::Motion(CameraMotion::Zoom(Zoom::In)), CommandOutcome::Completed, "Zooming in"; "zoom_in_completed")]
+        #[test_case(CameraAction::Motion(CameraMotion::Zoom(Zoom::Out)), CommandOutcome::Sent, "Zooming out"; "zoom_out_sent")]
+        #[test_case(CameraAction::Motion(CameraMotion::Zoom(Zoom::Out)), CommandOutcome::Completed, "Zooming out"; "zoom_out_completed")]
+        #[test_case(CameraAction::StopMotion, CommandOutcome::Sent, "Done moving"; "stop_sent")]
+        #[test_case(CameraAction::StopMotion, CommandOutcome::Completed, "Done moving"; "stop_completed")]
+        fn current_session_success_updates_status_and_emits_one_snapshot(
+            action: CameraAction,
+            outcome: CommandOutcome,
+            message: &str,
+        ) {
+            run(async {
+                let dir = tempfile::tempdir().unwrap();
+                let app = mock_app(dir.path());
+                let (session, event) = session_and_event(action, Some(outcome)).await;
+                let session_id = session.id();
+                install_session(app.handle(), session);
+                // Success must also clear a previously published error.
+                with_ui(app.handle(), |ui| {
+                    ui.set_error("Previous failure");
+                    Ok(())
+                })
+                .unwrap();
+                let payloads = listen(&app);
+                publish_camera_event(app.handle(), event).unwrap();
+                let expected = json!({
+                    "port":"selected", "ports":["selected","other"],
+                    "status":{"text":message,"isError":false}
+                });
+                assert_eq!(
+                    payloads.lock().unwrap().as_slice(),
+                    std::slice::from_ref(&expected)
+                );
+                assert_eq!(app_snapshot(app.handle()), expected);
+                with_ui(app.handle(), |ui| {
+                    assert!(ui.session_id() == Some(session_id));
+                    Ok(())
+                })
+                .unwrap();
+                shutdown_ui_state(app.handle()).await.unwrap();
+            });
+        }
+
+        #[test_case(CameraAction::RecallPreset(7, "Stage".into()); "recall")]
+        #[test_case(CameraAction::SetPreset(7, "Lectern".into()); "save")]
+        #[test_case(CameraAction::Motion(CameraMotion::PanTilt(Direction::Left)); "pan")]
+        #[test_case(CameraAction::Motion(CameraMotion::Zoom(Zoom::In)); "zoom_in")]
+        #[test_case(CameraAction::Motion(CameraMotion::Zoom(Zoom::Out)); "zoom_out")]
+        #[test_case(CameraAction::StopMotion; "stop")]
+        fn current_session_failure_updates_error_and_emits_one_snapshot(action: CameraAction) {
+            run(async {
+                let dir = tempfile::tempdir().unwrap();
+                let app = mock_app(dir.path());
+                let (session, event) = session_and_event(action, None).await;
+                install_session(app.handle(), session);
+                let payloads = listen(&app);
+                publish_camera_event(app.handle(), event).unwrap();
+                let expected = json!({
+                    "port":"selected", "ports":["selected","other"],
+                    "status":{"text":"Camera protocol error: simulated command failure","isError":true}
+                });
+                assert_eq!(
+                    payloads.lock().unwrap().as_slice(),
+                    std::slice::from_ref(&expected)
+                );
+                assert_eq!(app_snapshot(app.handle()), expected);
+                shutdown_ui_state(app.handle()).await.unwrap();
+            });
+        }
+
+        #[test_case(CameraAction::RecallPreset(7, "Stage".into()); "recall")]
+        #[test_case(CameraAction::SetPreset(7, "Lectern".into()); "save")]
+        #[test_case(CameraAction::Motion(CameraMotion::PanTilt(Direction::Left)); "pan")]
+        #[test_case(CameraAction::Motion(CameraMotion::Zoom(Zoom::In)); "zoom_in")]
+        #[test_case(CameraAction::Motion(CameraMotion::Zoom(Zoom::Out)); "zoom_out")]
+        #[test_case(CameraAction::StopMotion; "stop")]
+        fn superseded_current_session_result_preserves_state_and_emits_nothing(
+            action: CameraAction,
+        ) {
+            run(async {
+                let dir = tempfile::tempdir().unwrap();
+                let app = mock_app(dir.path());
+                let (session, event) =
+                    session_and_event(action, Some(CommandOutcome::Superceded)).await;
+                install_session(app.handle(), session);
+                let before = app_snapshot(app.handle());
+                let payloads = listen(&app);
+                publish_camera_event(app.handle(), event).unwrap();
+                assert_eq!(app_snapshot(app.handle()), before);
+                assert!(payloads.lock().unwrap().is_empty());
+                shutdown_ui_state(app.handle()).await.unwrap();
+            });
+        }
+
+        #[test_case(false, Some(CommandOutcome::Sent); "disconnected_sent")]
+        #[test_case(false, Some(CommandOutcome::Completed); "disconnected_completed")]
+        #[test_case(false, None; "disconnected_error")]
+        #[test_case(true, Some(CommandOutcome::Sent); "replaced_sent")]
+        #[test_case(true, Some(CommandOutcome::Completed); "replaced_completed")]
+        #[test_case(true, None; "replaced_error")]
+        fn old_session_event_preserves_state_and_emits_nothing(
+            replaced: bool,
+            outcome: Option<CommandOutcome>,
+        ) {
+            run(async {
+                let dir = tempfile::tempdir().unwrap();
+                let app = mock_app(dir.path());
+                let (old, event) =
+                    session_and_event(CameraAction::RecallPreset(1, "Old".into()), outcome).await;
+                let old_id = old.id();
+                old.shutdown().await.unwrap();
+                if replaced {
+                    // Reopening the same path must still reject events from the previous session.
+                    let current = open_fake("selected", &Calls::default()).await.unwrap();
+                    assert!(current.id() != old_id);
+                    install_session(app.handle(), current);
+                } else {
+                    with_ui(app.handle(), |ui| {
+                        ui.set_status("Disconnected");
+                        Ok(())
+                    })
+                    .unwrap();
+                }
+                let before = app_snapshot(app.handle());
+                let payloads = listen(&app);
+                publish_camera_event(app.handle(), event).unwrap();
+                assert_eq!(app_snapshot(app.handle()), before);
+                assert!(payloads.lock().unwrap().is_empty());
+                shutdown_ui_state(app.handle()).await.unwrap();
+            });
+        }
     }
 }

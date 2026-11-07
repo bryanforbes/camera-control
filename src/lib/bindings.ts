@@ -8,16 +8,14 @@ import * as __TAURI_EVENT from '@tauri-apps/api/event';
 export const commands = {
   openSettings: () => __TAURI_INVOKE<null>('open_settings'),
   getState: () => __TAURI_INVOKE<UIStateEvent_Serialize>('get_state'),
-  setPort: (portName: string | null) => __TAURI_INVOKE<void>('set_port', { portName }),
-  cameraPower: (power: boolean) => __TAURI_INVOKE<void>('camera_power', { power }),
-  autofocus: (autofocus: boolean) => __TAURI_INVOKE<void>('autofocus', { autofocus }),
+  setPort: (portName: string | null) => __TAURI_INVOKE<null>('set_port', { portName }),
   goToPreset: (preset: number, name: string) =>
-    __TAURI_INVOKE<void>('go_to_preset', { preset, name }),
-  setPreset: (preset: number, name: string) => __TAURI_INVOKE<void>('set_preset', { preset, name }),
-  moveCamera: (direction: Direction) => __TAURI_INVOKE<void>('move_camera', { direction }),
-  stopMove: () => __TAURI_INVOKE<void>('stop_move'),
-  zoom: (direction: Zoom) => __TAURI_INVOKE<void>('zoom', { direction }),
-  stopZoom: () => __TAURI_INVOKE<void>('stop_zoom'),
+    __TAURI_INVOKE<null>('go_to_preset', { preset, name }),
+  setPreset: (preset: number, name: string) => __TAURI_INVOKE<null>('set_preset', { preset, name }),
+  moveCamera: (direction: Direction) => __TAURI_INVOKE<null>('move_camera', { direction }),
+  stopMove: () => __TAURI_INVOKE<null>('stop_move'),
+  zoom: (direction: Zoom) => __TAURI_INVOKE<null>('zoom', { direction }),
+  stopZoom: () => __TAURI_INVOKE<null>('stop_zoom'),
   refreshPorts: () => __TAURI_INVOKE<void>('refresh_ports'),
 };
 
@@ -27,25 +25,47 @@ export const events = {
 };
 
 /* Types */
+export type CameraError = CameraError_Serialize | CameraError_Deserialize;
+
+export type CameraError_Deserialize =
+  | { type: 'CameraBusy' }
+  | { type: 'CameraSessionClosed' }
+  | { type: 'CameraWorkerStart' }
+  | { type: 'CameraResponseReceiveFailed' }
+  | { type: 'CameraMotionIdsExhausted' }
+  | { type: 'Protocol'; data: null }
+  | { type: 'SerialPort'; data: null }
+  | { type: 'Io'; data: null };
+
+export type CameraError_Serialize =
+  | { type: 'CameraBusy' }
+  | { type: 'CameraSessionClosed' }
+  | { type: 'CameraWorkerStart' }
+  | { type: 'CameraResponseReceiveFailed' }
+  | { type: 'CameraMotionIdsExhausted' }
+  | { type: 'Protocol' }
+  | { type: 'SerialPort' }
+  | { type: 'Io' };
+
 export type Direction = 'down' | 'up' | 'left' | 'right';
 
 export type Error = Error_Serialize | Error_Deserialize;
 
 export type Error_Deserialize =
   | { type: 'NoPortSet' }
+  | { type: 'Camera'; data: CameraError_Deserialize }
   | { type: 'Tauri'; data: null }
   | { type: 'Store'; data: null }
   | { type: 'Io'; data: null }
-  | { type: 'SerialPort'; data: null }
-  | { type: 'PelcoD'; data: null };
+  | { type: 'SerialPort'; data: null };
 
 export type Error_Serialize =
   | { type: 'NoPortSet' }
+  | { type: 'Camera'; data: CameraError_Serialize }
   | { type: 'Tauri' }
   | { type: 'Store' }
   | { type: 'Io' }
-  | { type: 'SerialPort' }
-  | { type: 'PelcoD' };
+  | { type: 'SerialPort' };
 
 export type Status = {
   text: string;
