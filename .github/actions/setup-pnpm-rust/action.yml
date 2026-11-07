@@ -8,14 +8,14 @@ runs:
   using: 'composite'
   steps:
     - name: Cache verified mise downloads
-      uses: actions/cache@v6
+      uses: actions/cache@v6.1.0
       if: github.ref_type != 'tag'
       with:
         path: ${{ runner.temp }}/mise-cache/downloads-cas
         key: mise-downloads-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.lock', 'mise.macos.lock') }}
 
     - name: Set up tools with mise
-      uses: jdx/mise-action@v5
+      uses: jdx/mise-action@v5.2.7
       env:
         MISE_CACHE_DIR: ${{ runner.temp }}/mise-cache
       with:
@@ -30,7 +30,7 @@ runs:
         printf 'path=%s\n' "${store_path%$'\r'}" >> "$GITHUB_OUTPUT"
 
     - name: Cache pnpm store
-      uses: actions/cache@v6
+      uses: actions/cache@v6.1.0
       if: github.ref_type != 'tag'
       with:
         path: ${{ steps.pnpm-store.outputs.path }}
