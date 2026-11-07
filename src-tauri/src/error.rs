@@ -1,3 +1,4 @@
+use crate::camera::Error as CameraError;
 use serde::Serialize;
 use specta::Type;
 use thiserror::Error as ThisError;
@@ -7,6 +8,9 @@ use thiserror::Error as ThisError;
 pub enum Error {
     #[error("No port set")]
     NoPortSet,
+
+    #[error("{0}")]
+    Camera(#[from] CameraError),
 
     #[error("Tauri error: {0}")]
     Tauri(
@@ -34,13 +38,6 @@ pub enum Error {
         #[serde(skip)]
         #[from]
         serialport::Error,
-    ),
-
-    #[error("PelcoD error: {0}")]
-    PelcoD(
-        #[serde(skip)]
-        #[from]
-        pelcodrs::Error,
     ),
 }
 
