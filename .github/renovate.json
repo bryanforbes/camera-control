@@ -5,6 +5,21 @@
     "github>bryanforbes/renovate-presets:config-rust-default.json5"
   ],
   "rangeStrategy": "pin",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^hk\\.pkl$/"],
+      "matchStrings": [
+        "package://github\\.com/jdx/hk/releases/download/v(?<currentValue>[^/]+)/hk@[^#]+"
+      ],
+      "depNameTemplate": "hk",
+      "packageNameTemplate": "jdx/hk",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver",
+      "extractVersionTemplate": "^v(?<version>.+)$",
+      "autoReplaceStringTemplate": "package://github.com/jdx/hk/releases/download/v{{{newValue}}}/hk@{{{newValue}}}"
+    }
+  ],
   "packageRules": [
     {
       "matchDepTypes": ["dependencies"],
@@ -33,6 +48,10 @@
     {
       "matchPackageNames": ["typescript"],
       "allowedVersions": "<7"
+    },
+    {
+      "matchPackageNames": ["hk", "jdx/hk"],
+      "groupName": "hk"
     }
   ]
 }
