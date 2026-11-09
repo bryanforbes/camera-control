@@ -12,10 +12,9 @@ export const commands = {
   goToPreset: (preset: number, name: string) =>
     __TAURI_INVOKE<null>('go_to_preset', { preset, name }),
   setPreset: (preset: number, name: string) => __TAURI_INVOKE<null>('set_preset', { preset, name }),
-  moveCamera: (direction: Direction) => __TAURI_INVOKE<null>('move_camera', { direction }),
-  stopMove: () => __TAURI_INVOKE<null>('stop_move'),
-  zoom: (direction: Zoom) => __TAURI_INVOKE<null>('zoom', { direction }),
-  stopZoom: () => __TAURI_INVOKE<null>('stop_zoom'),
+  moveCamera: (direction: Direction) => __TAURI_INVOKE<string>('move_camera', { direction }),
+  zoom: (direction: Zoom) => __TAURI_INVOKE<string>('zoom', { direction }),
+  stopMotion: (token: string) => __TAURI_INVOKE<null>('stop_motion', { token }),
   refreshPorts: () => __TAURI_INVOKE<void>('refresh_ports'),
 };
 

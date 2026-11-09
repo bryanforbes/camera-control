@@ -12,7 +12,7 @@ mod ui_state;
 mod visca;
 
 use crate::{
-    camera::{CameraEvent, CameraHandle, Direction, PendingMotionResult, Zoom},
+    camera::{CameraEvent, Direction, Zoom},
     error::Result,
     ui_state::{
         CameraEventSenderState, PortChangeLock, UIState, UIStateEvent, initialize_ui_state,
@@ -123,47 +123,26 @@ async fn set_preset(app: tauri::AppHandle, preset: u8, name: &str) -> Result<()>
     Ok(())
 }
 
-async fn handle_motion(
-    app: &tauri::AppHandle,
-    do_motion: impl FnOnce(&CameraHandle) -> PendingMotionResult,
-) -> Result<()> {
-    with_ui(app, |ui| ui.start_motion(do_motion))?
-        .wait()
-        .await
-        .map(|_| ())?;
-    Ok(())
-}
-
 #[tauri::command]
 #[specta::specta]
-async fn move_camera(app: tauri::AppHandle, direction: Direction) -> Result<()> {
+async fn move_camera(app: tauri::AppHandle, direction: Direction) -> Result<String> {
     debug!("Direction: {}", direction);
-
-    handle_motion(&app, |camera| camera.pan_tilt(direction)).await
+    with_ui(&app, |ui| {
+        ui.start_motion(|camera| camera.pan_tilt(direction))
+    })
 }
 
 #[tauri::command]
 #[specta::specta]
-async fn stop_move(app: tauri::AppHandle) -> Result<()> {
-    debug!("Stop Move");
-
-    stop_ui_state_motion(&app).await
-}
-
-#[tauri::command]
-#[specta::specta]
-async fn zoom(app: tauri::AppHandle, direction: Zoom) -> Result<()> {
+async fn zoom(app: tauri::AppHandle, direction: Zoom) -> Result<String> {
     debug!("Zoom: {}", direction);
-
-    handle_motion(&app, |camera| camera.zoom(direction)).await
+    with_ui(&app, |ui| ui.start_motion(|camera| camera.zoom(direction)))
 }
 
 #[tauri::command]
 #[specta::specta]
-async fn stop_zoom(app: tauri::AppHandle) -> Result<()> {
-    debug!("Stop Zoom");
-
-    stop_ui_state_motion(&app).await
+async fn stop_motion(app: tauri::AppHandle, token: &str) -> Result<()> {
+    stop_ui_state_motion(&app, token).await
 }
 
 #[tauri::command]
@@ -206,9 +185,8 @@ fn main() {
             go_to_preset,
             set_preset,
             move_camera,
-            stop_move,
             zoom,
-            stop_zoom,
+            stop_motion,
             refresh_ports,
         ])
         .events(tauri_specta::collect_events![UIStateEvent])

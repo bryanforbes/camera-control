@@ -1,8 +1,8 @@
 use crate::{
     camera::{
         CameraAction, CameraEvent, CameraEventSender, CameraHandle, CameraMotion, CameraSession,
-        CameraSessionBuilder, CameraSessionResult, CommandOutcome, CommandResponse, MotionHandle,
-        PendingMotion, PendingMotionResult, SessionId,
+        CameraSessionBuilder, CameraSessionResult, CommandOutcome, MotionHandle, PendingMotion,
+        PendingMotionResult, SessionId,
     },
     error::{Error, Result},
     pelco_camera::PelcoCamera,
@@ -13,6 +13,7 @@ use std::sync::Mutex;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 use tauri_specta::Event;
+use uuid::Uuid;
 
 #[derive(Serialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -51,10 +52,15 @@ impl Default for Status {
     }
 }
 
+struct RegisteredMotion {
+    token: String,
+    handle: MotionHandle,
+}
+
 #[derive(Default)]
 pub struct UIState {
     session: Option<CameraSession>,
-    motion: Option<MotionHandle>,
+    motion: Option<RegisteredMotion>,
     ports: Option<Vec<String>>,
     status: Status,
     exiting: bool,
@@ -79,13 +85,19 @@ impl UIState {
     pub fn start_motion(
         &mut self,
         do_motion: impl FnOnce(&CameraHandle) -> PendingMotionResult,
-    ) -> Result<CommandResponse> {
+    ) -> Result<String> {
         let camera = self.camera()?;
         let PendingMotion { motion, response } = do_motion(&camera)?;
 
-        self.motion = Some(motion);
+        let token = Uuid::new_v4().to_string();
+        self.motion = Some(RegisteredMotion {
+            token: token.clone(),
+            handle: motion,
+        });
 
-        Ok(response)
+        // The worker publishes the outcome independently of this reply.
+        drop(response);
+        Ok(token)
     }
 
     pub fn set_status(&mut self, status: &str) {
@@ -320,8 +332,18 @@ async fn initialize_ui_state_with<R: tauri::Runtime>(
     set_ui_state_session_with(app, path.as_deref(), open).await
 }
 
-pub async fn stop_ui_state_motion<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<()> {
-    let Some(motion) = with_ui(app, |ui| Ok(ui.motion.clone()))? else {
+pub async fn stop_ui_state_motion<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    token: &str,
+) -> Result<()> {
+    let Some(motion) = with_ui(app, |ui| {
+        Ok(ui
+            .motion
+            .as_ref()
+            .filter(|motion| motion.token == token)
+            .map(|motion| motion.handle.clone()))
+    })?
+    else {
         return Ok(());
     };
 
@@ -331,7 +353,7 @@ pub async fn stop_ui_state_motion<R: tauri::Runtime>(app: &tauri::AppHandle<R>) 
         if ui
             .motion
             .as_ref()
-            .is_some_and(|current| current.same_motion(&motion))
+            .is_some_and(|current| current.token == token)
         {
             ui.motion = None;
         }
@@ -389,6 +411,7 @@ mod tests {
         calls: Calls,
         fail_close: bool,
         close_gate: Option<(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>)>,
+        motion_started: Option<oneshot::Sender<()>>,
         fail_stop_once: bool,
         stop_gate: Option<(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>)>,
     }
@@ -400,6 +423,7 @@ mod tests {
                 calls: calls.clone(),
                 fail_close: false,
                 close_gate: None,
+                motion_started: None,
                 fail_stop_once: false,
                 stop_gate: None,
             }
@@ -435,6 +459,11 @@ mod tests {
                 }
             } else {
                 self.record("action");
+                if matches!(action, CameraAction::Motion(_))
+                    && let Some(started) = self.motion_started.take()
+                {
+                    let _ = started.send(());
+                }
             }
             Ok(CommandOutcome::Completed)
         }
@@ -820,14 +849,11 @@ mod tests {
         });
     }
 
-    async fn start_test_motion(app: &tauri::AppHandle<MockRuntime>) {
+    fn start_test_motion(app: &tauri::AppHandle<MockRuntime>) -> String {
         with_ui(app, |ui| {
             ui.start_motion(|camera| camera.pan_tilt(Direction::Up))
         })
         .unwrap()
-        .wait()
-        .await
-        .unwrap();
     }
 
     #[test]
@@ -837,20 +863,23 @@ mod tests {
             let app = mock_app(dir.path());
             let calls = Calls::default();
             let mut adapter = FakeAdapter::new("selected", &calls);
+            let (entered, started) = oneshot::channel();
+            adapter.motion_started = Some(entered);
             adapter.fail_stop_once = true;
             set_ui_state_session_with(app.handle(), Some("selected"), async |_| {
                 open_adapter(adapter).await
             })
             .await
             .unwrap();
-            start_test_motion(app.handle()).await;
+            let token = start_test_motion(app.handle());
+            started.await.unwrap();
 
             assert!(matches!(
-                stop_ui_state_motion(app.handle()).await,
+                stop_ui_state_motion(app.handle(), &token).await,
                 Err(Error::Camera(CameraError::Io(error))) if error.kind() == std::io::ErrorKind::BrokenPipe
             ));
-            stop_ui_state_motion(app.handle()).await.unwrap();
-            stop_ui_state_motion(app.handle()).await.unwrap();
+            stop_ui_state_motion(app.handle(), &token).await.unwrap();
+            stop_ui_state_motion(app.handle(), &token).await.unwrap();
 
             assert_eq!(
                 *calls.lock().unwrap(),
@@ -876,14 +905,17 @@ mod tests {
             let (release, released) = std::sync::mpsc::channel();
             let mut adapter = FakeAdapter::new("old", &calls);
             adapter.stop_gate = Some((entered, released));
+            let (entered, started) = oneshot::channel();
+            adapter.motion_started = Some(entered);
             set_ui_state_session_with(app.handle(), Some("old"), async |_| {
                 open_adapter(adapter).await
             })
             .await
             .unwrap();
-            start_test_motion(app.handle()).await;
+            let old_token = start_test_motion(app.handle());
+            started.await.unwrap();
 
-            let mut stop = std::pin::pin!(stop_ui_state_motion(app.handle()));
+            let mut stop = std::pin::pin!(stop_ui_state_motion(app.handle(), &old_token));
             assert!(matches!(
                 stop.as_mut().poll(&mut Context::from_waker(Waker::noop())),
                 Poll::Pending
@@ -899,9 +931,24 @@ mod tests {
                 .unwrap();
             }
             // Process the old stop result after the new handle is installed.
-            start_test_motion(app.handle()).await;
+            let new_token = start_test_motion(app.handle());
+            assert_ne!(old_token, new_token);
             stop.await.unwrap();
-            stop_ui_state_motion(app.handle()).await.unwrap();
+            stop_ui_state_motion(app.handle(), &old_token)
+                .await
+                .unwrap();
+            assert_eq!(
+                calls
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .filter(|call| call.starts_with("stop:"))
+                    .count(),
+                1
+            );
+            stop_ui_state_motion(app.handle(), &new_token)
+                .await
+                .unwrap();
             let expected = if replace_session {
                 "stop:new"
             } else {
@@ -929,20 +976,17 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let app = mock_app(dir.path());
             let calls = Calls::default();
-            set_ui_state_session_with(app.handle(), Some("old"), async |path| {
-                open_fake(path, &calls).await
+            let (entered, started) = oneshot::channel();
+            let mut adapter = FakeAdapter::new("old", &calls);
+            adapter.motion_started = Some(entered);
+            set_ui_state_session_with(app.handle(), Some("old"), async |_| {
+                open_adapter(adapter).await
             })
             .await
             .unwrap();
             let camera = with_ui(app.handle(), |ui| ui.camera()).unwrap();
-            let started = with_ui(app.handle(), |ui| {
-                ui.start_motion(|camera| camera.pan_tilt(Direction::Up))
-            })
-            .unwrap();
-            assert!(matches!(
-                started.wait().await.unwrap(),
-                CommandOutcome::Completed
-            ));
+            start_test_motion(app.handle());
+            started.await.unwrap();
             with_ui(app.handle(), |ui| {
                 assert!(ui.motion.is_some());
                 Ok(())

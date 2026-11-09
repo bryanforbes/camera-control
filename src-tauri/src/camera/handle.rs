@@ -118,12 +118,6 @@ pub struct MotionHandle {
 }
 
 impl MotionHandle {
-    pub fn same_motion(&self, other: &Self) -> bool {
-        // Each session has its own allocator, shared by its handle clones.
-        self.id == other.id
-            && Arc::ptr_eq(&self.camera.next_motion_id, &other.camera.next_motion_id)
-    }
-
     pub async fn stop(&self) -> CommandResult {
         let (reply_tx, reply_rx) = oneshot::channel();
 
@@ -141,10 +135,13 @@ impl MotionHandle {
     }
 }
 
+// Motion registration uses worker events. Tests can also await the direct reply.
+#[cfg_attr(not(test), allow(dead_code))]
 pub struct CommandResponse {
     receiver: oneshot::Receiver<CommandResult>,
 }
 
+#[cfg(test)]
 impl CommandResponse {
     pub async fn wait(self) -> CommandResult {
         self.receiver

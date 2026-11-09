@@ -33,13 +33,13 @@
     }
   }
 
-  const startStopCommands = {
-    in: [commands.zoom.bind(null, 'in'), commands.stopZoom],
-    out: [commands.zoom.bind(null, 'out'), commands.stopZoom],
-    up: [commands.moveCamera.bind(null, 'up'), commands.stopMove],
-    down: [commands.moveCamera.bind(null, 'down'), commands.stopMove],
-    left: [commands.moveCamera.bind(null, 'left'), commands.stopMove],
-    right: [commands.moveCamera.bind(null, 'right'), commands.stopMove],
+  const startCommands = {
+    in: commands.zoom.bind(null, 'in'),
+    out: commands.zoom.bind(null, 'out'),
+    up: commands.moveCamera.bind(null, 'up'),
+    down: commands.moveCamera.bind(null, 'down'),
+    left: commands.moveCamera.bind(null, 'left'),
+    right: commands.moveCamera.bind(null, 'right'),
   } as const;
 
   let finishActiveInteraction: (() => void) | null = null;
@@ -58,22 +58,27 @@
 
     const button = event.currentTarget as HTMLButtonElement;
     const pointerId = event.pointerId;
-    const [startCommand, stopCommand] = startStopCommands[direction];
+    const startCommand = startCommands[direction];
 
     const cleanup: (() => void)[] = [];
     let isFinished = false;
-    let started = Promise.resolve(null);
+    let registration: Promise<string> | undefined;
 
-    async function stopAfterStart() {
+    async function stopAfterRegistration() {
       try {
-        try {
-          // Wait for the start (or resolved promise) to end before stopping
-          await started;
-        } catch {
-          // The start error is logged below; still attempt to stop.
+        if (!registration) {
+          return;
         }
 
-        await stopCommand();
+        let token: string;
+        try {
+          token = await registration;
+        } catch {
+          // The registration error is reported by the start handler.
+          return;
+        }
+
+        await commands.stopMotion(token);
       } catch (error: unknown) {
         console.error('Error stopping command:', error);
       } finally {
@@ -100,7 +105,7 @@
         button.releasePointerCapture(pointerId);
       }
 
-      void stopAfterStart();
+      void stopAfterRegistration();
     }
 
     function finishForPointer(event: PointerEvent) {
@@ -133,14 +138,11 @@
       return;
     }
 
-    // Retain the promise so finish() can order stop after start.
-    // The callback also turns synchronous errors into rejections.
-
     try {
-      started = startCommand();
-      await started;
+      registration = startCommand();
+      await registration;
     } catch (error: unknown) {
-      console.error('Error starting command:', error);
+      console.error('Error registering motion:', error);
       finish();
     }
   }
