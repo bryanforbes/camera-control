@@ -13,6 +13,16 @@
   import { onDestroy, type Component } from 'svelte';
   import { on } from 'svelte/events';
 
+  async function selectPort(select: HTMLSelectElement) {
+    try {
+      await commands.setPort(select.value === '' ? null : select.value);
+    } catch (error: unknown) {
+      console.error('Error switching camera port:', error);
+    } finally {
+      select.value = uiState.port ?? '';
+    }
+  }
+
   async function confirmSetPreset(preset: number, name: string) {
     const isConfirmed = await ask(`Are you sure you want to set ${name}?`, {
       kind: 'warning',
@@ -148,10 +158,8 @@
       <span class="m-auto">Port:</span>
       <select
         id="ports"
-        bind:value={
-          () => uiState.port ?? '',
-          (value: string) => void commands.setPort(value === '' ? null : value)
-        }
+        value={uiState.port ?? ''}
+        onchange={(event) => void selectPort(event.currentTarget)}
       >
         <option value=""></option>
         {#if uiState.ports}

@@ -76,10 +76,6 @@ impl UIState {
             .ok_or(Error::NoPortSet)
     }
 
-    pub fn take_motion(&mut self) -> Option<MotionHandle> {
-        self.motion.take()
-    }
-
     pub fn start_motion(
         &mut self,
         do_motion: impl FnOnce(&CameraHandle) -> PendingMotionResult,
@@ -263,38 +259,46 @@ async fn set_ui_state_session_with<R: tauri::Runtime>(
         ui.session.take()
     };
 
-    if let Some(session) = old_session {
-        session.shutdown().await?;
+    if let Some(session) = old_session
+        && let Err(error) = session.shutdown().await
+    {
+        log::warn!("Failed to stop previous camera session: {error}");
     }
 
-    let new_session = match path {
-        Some(path) => Some(open(path).await?),
-        None => None,
-    };
+    let result: Result<()> = async {
+        let new_session = match path {
+            Some(path) => Some(open(path).await?),
+            None => None,
+        };
 
-    {
-        let mut ui = state.lock().expect("mutex poisoned");
-        ui.session = new_session;
+        state.lock().expect("mutex poisoned").session = new_session;
+
+        let store = app.store("config.json")?;
+        store.set("port", path);
+        let saved = store.save();
+        store.close_resource();
+        saved?;
+        Ok(())
     }
+    .await;
 
-    let store = app.store("config.json")?;
-    store.set("port", path);
-    store.save()?;
-    store.close_resource();
-
-    {
-        let mut ui = state.lock().expect("mutex poisoned");
-        let connected = ui.session.is_some();
-
-        ui.set_status(if connected {
-            "Connected"
-        } else {
-            "Disconnected"
-        });
+    with_ui(app, |ui| {
+        match (&result, path) {
+            (Ok(()), _) => ui.set_status(if ui.session.is_some() {
+                "Connected"
+            } else {
+                "Disconnected"
+            }),
+            (Err(Error::Camera(error)), Some(path)) => {
+                ui.set_error(&format!("Could not open camera port {path}: {error}"));
+            }
+            (Err(error), _) => {
+                ui.set_error(&format!("Could not save camera port selection: {error}"));
+            }
+        }
         let _ = UIStateEvent::from(&*ui).emit(app);
-    }
-
-    Ok(())
+        result
+    })
 }
 
 pub async fn initialize_ui_state<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<()> {
@@ -314,6 +318,25 @@ async fn initialize_ui_state_with<R: tauri::Runtime>(
     store.close_resource();
 
     set_ui_state_session_with(app, path.as_deref(), open).await
+}
+
+pub async fn stop_ui_state_motion<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<()> {
+    let Some(motion) = with_ui(app, |ui| Ok(ui.motion.clone()))? else {
+        return Ok(());
+    };
+
+    motion.stop().await?;
+
+    with_ui(app, |ui| {
+        if ui
+            .motion
+            .as_ref()
+            .is_some_and(|current| current.same_motion(&motion))
+        {
+            ui.motion = None;
+        }
+        Ok(())
+    })
 }
 
 pub async fn shutdown_ui_state<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<()> {
@@ -366,6 +389,8 @@ mod tests {
         calls: Calls,
         fail_close: bool,
         close_gate: Option<(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>)>,
+        fail_stop_once: bool,
+        stop_gate: Option<(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>)>,
     }
 
     impl FakeAdapter {
@@ -375,6 +400,8 @@ mod tests {
                 calls: calls.clone(),
                 fail_close: false,
                 close_gate: None,
+                fail_stop_once: false,
+                stop_gate: None,
             }
         }
 
@@ -396,8 +423,19 @@ mod tests {
         fn name(&self) -> Option<String> {
             Some(self.name.clone())
         }
-        fn handle_action(&mut self, _: &CameraAction) -> CommandResult {
-            self.record("action");
+        fn handle_action(&mut self, action: &CameraAction) -> CommandResult {
+            if matches!(action, CameraAction::StopMotion) {
+                self.record("stop");
+                if let Some((entered, release)) = self.stop_gate.take() {
+                    entered.send(()).unwrap();
+                    release.recv_timeout(Duration::from_secs(5)).unwrap();
+                }
+                if std::mem::take(&mut self.fail_stop_once) {
+                    return Err(std::io::Error::from(std::io::ErrorKind::BrokenPipe).into());
+                }
+            } else {
+                self.record("action");
+            }
             Ok(CommandOutcome::Completed)
         }
         fn stop_motion(&mut self) -> crate::camera::Result<()> {
@@ -463,6 +501,18 @@ mod tests {
 
     fn app_snapshot(app: &tauri::AppHandle<MockRuntime>) -> Value {
         to_value(with_ui(app, |ui| Ok(UIStateEvent::from(&*ui))).unwrap()).unwrap()
+    }
+
+    fn listen(app: &tauri::App<MockRuntime>) -> Arc<Mutex<Vec<Value>>> {
+        let payloads = Arc::new(Mutex::new(Vec::new()));
+        let received = payloads.clone();
+        app.listen(UIStateEvent::NAME, move |event| {
+            received
+                .lock()
+                .unwrap()
+                .push(serde_json::from_str(event.payload()).unwrap());
+        });
+        payloads
     }
 
     fn saved_port(dir: &Path) -> Value {
@@ -646,6 +696,7 @@ mod tests {
             })
             .await
             .unwrap();
+            let payloads = listen(&app);
             let result = set_ui_state_session_with(app.handle(), Some("missing"), async |_| {
                 Err(CameraError::Io(std::io::ErrorKind::NotFound.into()))
             })
@@ -653,7 +704,16 @@ mod tests {
             assert!(
                 matches!(result, Err(Error::Camera(CameraError::Io(error))) if error.kind() == std::io::ErrorKind::NotFound)
             );
-            assert_eq!(app_snapshot(app.handle())["port"], Value::Null);
+            let snapshot = app_snapshot(app.handle());
+            assert_eq!(snapshot["port"], Value::Null);
+            assert_eq!(snapshot["status"]["isError"], true);
+            assert!(
+                snapshot["status"]["text"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("Could not open camera port missing:")
+            );
+            assert_eq!(payloads.lock().unwrap().as_slice(), &[snapshot]);
             assert_eq!(saved_port(dir.path()), "old");
             assert_eq!(
                 *calls.lock().unwrap(),
@@ -664,7 +724,7 @@ mod tests {
 
     #[test_case(None; "disconnect")]
     #[test_case(Some("new"); "replacement")]
-    fn close_failure_drops_adapter_and_prevents_replacement(path: Option<&str>) {
+    fn close_failure_releases_old_adapter_and_completes_switch(path: Option<&str>) {
         run(async {
             let dir = tempfile::tempdir().unwrap();
             fs::write(dir.path().join("config.json"), r#"{"port":"old"}"#).unwrap();
@@ -678,19 +738,21 @@ mod tests {
                 Ok(())
             })
             .unwrap();
-            let result = set_ui_state_session_with(app.handle(), path, async |_| {
-                panic!("close failure must prevent opening")
+            let payloads = listen(&app);
+            set_ui_state_session_with(app.handle(), path, async |path| {
+                assert_eq!(
+                    *calls.lock().unwrap(),
+                    ["open:old", "close:old", "drop:old"]
+                );
+                open_fake(path, &calls).await
             })
-            .await;
-            assert!(
-                matches!(result, Err(Error::Camera(CameraError::Io(error))) if error.kind() == std::io::ErrorKind::BrokenPipe)
-            );
-            assert_eq!(app_snapshot(app.handle())["port"], Value::Null);
-            assert_eq!(saved_port(dir.path()), "old");
-            assert_eq!(
-                *calls.lock().unwrap(),
-                ["open:old", "close:old", "drop:old"]
-            );
+            .await
+            .unwrap();
+            let snapshot = app_snapshot(app.handle());
+            assert_eq!(snapshot["port"], json!(path));
+            assert_eq!(saved_port(dir.path()), json!(path));
+            assert_eq!(payloads.lock().unwrap().as_slice(), &[snapshot]);
+            shutdown_ui_state(app.handle()).await.unwrap();
         });
     }
 
@@ -701,12 +763,22 @@ mod tests {
             fs::create_dir(dir.path().join("config.json")).unwrap();
             let app = mock_app(dir.path());
             let calls = Calls::default();
+            let payloads = listen(&app);
             let result = set_ui_state_session_with(app.handle(), Some("selected"), async |path| {
                 open_fake(path, &calls).await
             })
             .await;
             assert!(matches!(result, Err(Error::Store(_))));
-            assert_eq!(app_snapshot(app.handle())["port"], "selected");
+            let snapshot = app_snapshot(app.handle());
+            assert_eq!(snapshot["port"], "selected");
+            assert_eq!(snapshot["status"]["isError"], true);
+            assert!(
+                snapshot["status"]["text"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("Could not save camera port selection:")
+            );
+            assert_eq!(payloads.lock().unwrap().as_slice(), &[snapshot]);
             shutdown_ui_state(app.handle()).await.unwrap();
         });
     }
@@ -745,6 +817,108 @@ mod tests {
                 *calls.lock().unwrap(),
                 ["open:old", "close:old", "drop:old"]
             );
+        });
+    }
+
+    async fn start_test_motion(app: &tauri::AppHandle<MockRuntime>) {
+        with_ui(app, |ui| {
+            ui.start_motion(|camera| camera.pan_tilt(Direction::Up))
+        })
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
+    }
+
+    #[test]
+    fn failed_stop_retains_motion_for_retry() {
+        run(async {
+            let dir = tempfile::tempdir().unwrap();
+            let app = mock_app(dir.path());
+            let calls = Calls::default();
+            let mut adapter = FakeAdapter::new("selected", &calls);
+            adapter.fail_stop_once = true;
+            set_ui_state_session_with(app.handle(), Some("selected"), async |_| {
+                open_adapter(adapter).await
+            })
+            .await
+            .unwrap();
+            start_test_motion(app.handle()).await;
+
+            assert!(matches!(
+                stop_ui_state_motion(app.handle()).await,
+                Err(Error::Camera(CameraError::Io(error))) if error.kind() == std::io::ErrorKind::BrokenPipe
+            ));
+            stop_ui_state_motion(app.handle()).await.unwrap();
+            stop_ui_state_motion(app.handle()).await.unwrap();
+
+            assert_eq!(
+                *calls.lock().unwrap(),
+                [
+                    "open:selected",
+                    "action:selected",
+                    "stop:selected",
+                    "stop:selected"
+                ]
+            );
+            shutdown_ui_state(app.handle()).await.unwrap();
+        });
+    }
+
+    #[test_case(false; "newer motion in same session")]
+    #[test_case(true; "first motion in replacement session")]
+    fn delayed_stop_does_not_clear_new_motion(replace_session: bool) {
+        run(async {
+            let dir = tempfile::tempdir().unwrap();
+            let app = mock_app(dir.path());
+            let calls = Calls::default();
+            let (entered, stopping) = oneshot::channel();
+            let (release, released) = std::sync::mpsc::channel();
+            let mut adapter = FakeAdapter::new("old", &calls);
+            adapter.stop_gate = Some((entered, released));
+            set_ui_state_session_with(app.handle(), Some("old"), async |_| {
+                open_adapter(adapter).await
+            })
+            .await
+            .unwrap();
+            start_test_motion(app.handle()).await;
+
+            let mut stop = std::pin::pin!(stop_ui_state_motion(app.handle()));
+            assert!(matches!(
+                stop.as_mut().poll(&mut Context::from_waker(Waker::noop())),
+                Poll::Pending
+            ));
+            stopping.await.unwrap();
+            release.send(()).unwrap();
+
+            if replace_session {
+                set_ui_state_session_with(app.handle(), Some("new"), async |path| {
+                    open_fake(path, &calls).await
+                })
+                .await
+                .unwrap();
+            }
+            // Process the old stop result after the new handle is installed.
+            start_test_motion(app.handle()).await;
+            stop.await.unwrap();
+            stop_ui_state_motion(app.handle()).await.unwrap();
+            let expected = if replace_session {
+                "stop:new"
+            } else {
+                "stop:old"
+            };
+            {
+                let calls = calls.lock().unwrap();
+                assert_eq!(
+                    calls
+                        .iter()
+                        .filter(|call| call.starts_with("stop:"))
+                        .count(),
+                    2
+                );
+                assert_eq!(calls.last().unwrap(), expected);
+            }
+            shutdown_ui_state(app.handle()).await.unwrap();
         });
     }
 
@@ -1026,18 +1200,6 @@ mod tests {
                 Ok(())
             })
             .unwrap();
-        }
-
-        fn listen(app: &tauri::App<MockRuntime>) -> Arc<Mutex<Vec<Value>>> {
-            let payloads = Arc::new(Mutex::new(Vec::new()));
-            let received = payloads.clone();
-            app.listen(UIStateEvent::NAME, move |event| {
-                received
-                    .lock()
-                    .unwrap()
-                    .push(serde_json::from_str(event.payload()).unwrap());
-            });
-            payloads
         }
 
         #[test_case(CameraAction::RecallPreset(7, "Stage".into()), CommandOutcome::Sent, "Recalling preset Stage"; "recall_sent")]

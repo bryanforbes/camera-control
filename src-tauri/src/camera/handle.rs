@@ -111,12 +111,19 @@ pub struct CameraHandle {
     next_motion_id: Arc<AtomicU64>,
 }
 
+#[derive(Clone)]
 pub struct MotionHandle {
     id: MotionId,
     camera: CameraHandle,
 }
 
 impl MotionHandle {
+    pub fn same_motion(&self, other: &Self) -> bool {
+        // Each session has its own allocator, shared by its handle clones.
+        self.id == other.id
+            && Arc::ptr_eq(&self.camera.next_motion_id, &other.camera.next_motion_id)
+    }
+
     pub async fn stop(&self) -> CommandResult {
         let (reply_tx, reply_rx) = oneshot::channel();
 

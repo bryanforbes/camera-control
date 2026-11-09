@@ -16,7 +16,8 @@ use crate::{
     error::Result,
     ui_state::{
         CameraEventSenderState, PortChangeLock, UIState, UIStateEvent, initialize_ui_state,
-        publish_camera_event, set_ui_state_session, shutdown_ui_state, with_ui, with_ui_emit,
+        publish_camera_event, set_ui_state_session, shutdown_ui_state, stop_ui_state_motion,
+        with_ui, with_ui_emit,
     },
 };
 use log::debug;
@@ -133,17 +134,6 @@ async fn handle_motion(
     Ok(())
 }
 
-async fn handle_stop_motion(app: &tauri::AppHandle) -> Result<()> {
-    let motion = with_ui(app, |ui| Ok(ui.take_motion()))?;
-
-    let Some(motion) = motion else {
-        return Ok(());
-    };
-
-    motion.stop().await.map(|_| ())?;
-    Ok(())
-}
-
 #[tauri::command]
 #[specta::specta]
 async fn move_camera(app: tauri::AppHandle, direction: Direction) -> Result<()> {
@@ -157,7 +147,7 @@ async fn move_camera(app: tauri::AppHandle, direction: Direction) -> Result<()> 
 async fn stop_move(app: tauri::AppHandle) -> Result<()> {
     debug!("Stop Move");
 
-    handle_stop_motion(&app).await
+    stop_ui_state_motion(&app).await
 }
 
 #[tauri::command]
@@ -173,7 +163,7 @@ async fn zoom(app: tauri::AppHandle, direction: Zoom) -> Result<()> {
 async fn stop_zoom(app: tauri::AppHandle) -> Result<()> {
     debug!("Stop Zoom");
 
-    handle_stop_motion(&app).await
+    stop_ui_state_motion(&app).await
 }
 
 #[tauri::command]
