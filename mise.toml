@@ -1,7 +1,7 @@
 [tools]
 "cargo:tauri-cli" = "2.12.4"
 hk = { version = "2.11.1", workflow = "release.yml" }
-jactionlint = { version = "2.4.0", workflow = "release.yaml" }
+jactionlint = { version = "v2.5.0", workflow = "release.yaml" }
 node = "26.13.0"
 pkl = "0.32.2"
 pnpm = "12.17.0"
