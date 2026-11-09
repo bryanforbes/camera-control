@@ -4,7 +4,7 @@ hk = { version = "2.11.1", workflow = "release.yml" }
 jactionlint = { version = "v2.5.0", workflow = "release.yaml" }
 node = "26.13.0"
 pkl = "0.33.0"
-pnpm = "12.17.0"
+pnpm = "12.18.0"
 
 [tools.rust]
 version = "stable"
