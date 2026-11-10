@@ -57,3 +57,29 @@ run = 'hk fix'
 [tasks.test]
 description = "Run tests"
 run = 'cargo test --manifest-path src-tauri/Cargo.toml'
+
+[tasks.probe]
+description = "Run VISCA probe"
+usage = '''
+flag "--port <port>" required=#true
+flag "--log-file <log-file>"
+flag "--baud <baud>" default="9600"
+flag "--address <address>" default="1"
+flag "--timeout-ms <timeout-ms>" default="500"
+arg "<mode>" required=#true {
+  choices "baseline" "overlap"
+}
+arg "<motion>" required=#true {
+  choices "pan" "zoom"
+}
+'''
+run = '''
+cargo run --locked --manifest-path tools/visca-probe/Cargo.toml -- \
+  --port ${usage_port:?} \
+  --baud ${usage_baud:?} \
+  --address ${usage_address:?} \
+  --timeout-ms ${usage_timeout_ms:?} \
+  ${usage_log_file:+--log-file} ${usage_log_file:+"$usage_log_file"} \
+  ${usage_mode:?} \
+  ${usage_motion:?}
+'''
