@@ -120,11 +120,31 @@ fn finish_request(
     request.reply(result)
 }
 
+#[derive(Clone, Copy)]
+pub enum RequestLane {
+    Action,
+    Stop,
+}
+
 pub trait CameraSessionAdapter {
     fn name(&self) -> Option<String>;
     fn handle_action(&mut self, action: &CameraAction) -> Result<CommandOutcome>;
     fn stop_motion(&mut self) -> Result<()>;
     fn close(&mut self) -> Result<()>;
+
+    /// Return an immediate result or reserve the lane for a later completion.
+    fn dispatch(&mut self, action: &CameraAction, _: RequestLane) -> Option<CommandResult> {
+        Some(self.handle_action(action))
+    }
+
+    fn can_dispatch_stop(&self) -> bool {
+        true
+    }
+
+    /// Poll a pending request. An outer error ends the session.
+    fn poll_completion(&mut self) -> Result<Option<(RequestLane, CommandResult)>> {
+        Ok(None)
+    }
 }
 
 pub struct CameraSessionBuilder {
@@ -155,6 +175,16 @@ impl CameraSessionBuilder {
     where
         C: CameraSessionAdapter,
     {
+        self.try_open(move |port| Ok(adapter_creator(port))).await
+    }
+
+    pub(crate) async fn try_open<C>(
+        self,
+        adapter_creator: impl FnOnce(Box<dyn SerialPort>) -> Result<C> + Send + 'static,
+    ) -> CameraSessionResult
+    where
+        C: CameraSessionAdapter,
+    {
         self.open_with(move |path, baud_rate| {
             let port = serialport::new(path, baud_rate)
                 .data_bits(DataBits::Eight)
@@ -163,7 +193,7 @@ impl CameraSessionBuilder {
                 .stop_bits(StopBits::One)
                 .open()?;
 
-            Ok(adapter_creator(port))
+            adapter_creator(port)
         })
         .await
     }
@@ -232,76 +262,94 @@ where
 
             let mut motion_tracker = MotionTracker::default();
 
-            loop {
-                let request = tauri::async_runtime::block_on(async {
+            enum Work {
+                Request(RequestLane, CameraRequest),
+                Poll,
+                Shutdown,
+            }
+
+            let mut pending_action = None;
+            let mut pending_stop = None;
+            let worker_result = loop {
+                let idle = pending_action.is_none() && pending_stop.is_none();
+                let work = tauri::async_runtime::block_on(async {
                     tokio::select! {
                         biased;
 
-                        _ = &mut shutdown_rx => None,
-                        Some(request) = stops_rx.recv() => Some(request),
-                        request = requests_rx.recv() => request,
+                        _ = &mut shutdown_rx => Work::Shutdown,
+                        Some(request) = stops_rx.recv(),
+                            if pending_stop.is_none() && adapter.can_dispatch_stop() =>
+                            Work::Request(RequestLane::Stop, request),
+                        request = requests_rx.recv(), if idle => match request {
+                            Some(request) => Work::Request(RequestLane::Action, request),
+                            None => Work::Shutdown,
+                        },
+                        _ = async {}, if !idle => Work::Poll,
                     }
                 });
 
-                match request {
-                    Some(request) => {
-                        let action = request.action().camera_action();
-                        match request.action() {
-                            RequestAction::StartMotion { id, .. } => {
-                                if !motion_tracker.can_start(*id) {
-                                    finish_request(
-                                        session_id,
-                                        &events_tx,
-                                        request,
-                                        action,
-                                        Ok(CommandOutcome::Superceded),
-                                    );
-                                    continue;
-                                }
-
-                                if let Err(error) = adapter.stop_motion() {
-                                    finish_request(
-                                        session_id,
-                                        &events_tx,
-                                        request,
-                                        action,
-                                        Err(error),
-                                    );
-                                    continue;
-                                }
-
-                                motion_tracker.start_motion(*id);
-                                let result = adapter.handle_action(&action);
-                                finish_request(session_id, &events_tx, request, action, result);
-                            }
-                            RequestAction::StopMotion { id } => {
-                                if motion_tracker.stop_motion(*id) {
-                                    let result = adapter.handle_action(&action);
+                let (lane, request) = match work {
+                    Work::Shutdown => break Ok(()),
+                    Work::Poll => {
+                        match adapter.poll_completion() {
+                            Ok(Some((lane, result))) => {
+                                let slot = match lane {
+                                    RequestLane::Action => &mut pending_action,
+                                    RequestLane::Stop => &mut pending_stop,
+                                };
+                                if let Some((request, action)) = slot.take() {
                                     finish_request(session_id, &events_tx, request, action, result);
-                                } else {
-                                    finish_request(
-                                        session_id,
-                                        &events_tx,
-                                        request,
-                                        action,
-                                        Ok(CommandOutcome::Superceded),
-                                    );
                                 }
                             }
-                            _ => {
-                                let result = adapter.handle_action(&action);
-                                finish_request(session_id, &events_tx, request, action, result);
-                            }
-                        };
+                            Ok(None) => {}
+                            Err(error) => break Err(error),
+                        }
+                        continue;
                     }
-                    None => break,
+                    Work::Request(lane, request) => (lane, request),
+                };
+
+                let action = request.action().camera_action();
+                let early_result = match request.action() {
+                    RequestAction::StartMotion { id, .. } if motion_tracker.can_start(*id) => {
+                        match adapter.stop_motion() {
+                            Ok(()) => {
+                                motion_tracker.start_motion(*id);
+                                None
+                            }
+                            Err(error) => Some(Err(error)),
+                        }
+                    }
+                    RequestAction::StopMotion { id } if motion_tracker.stop_motion(*id) => None,
+                    RequestAction::StartMotion { .. } | RequestAction::StopMotion { .. } => {
+                        Some(Ok(CommandOutcome::Superceded))
+                    }
+                    RequestAction::Command(_) => None,
+                };
+
+                match early_result.or_else(|| adapter.dispatch(&action, lane)) {
+                    Some(result) => finish_request(session_id, &events_tx, request, action, result),
+                    None => match lane {
+                        RequestLane::Action => pending_action = Some((request, action)),
+                        RequestLane::Stop => pending_stop = Some((request, action)),
+                    },
                 }
+            };
+
+            for (request, action) in [pending_action, pending_stop].into_iter().flatten() {
+                let error = match &worker_result {
+                    Ok(()) => Error::CameraSessionClosed,
+                    Err(error) => {
+                        Error::Protocol(Box::new(std::io::Error::other(error.to_string())))
+                    }
+                };
+                finish_request(session_id, &events_tx, request, action, Err(error));
             }
 
             drop(requests_rx);
             let result = adapter.close();
             drop(adapter);
-            let _ = closed_tx.send(result);
+            let _ = closed_tx.send(worker_result.and(result));
         })
         .map_err(|_| Error::CameraWorkerStart)?;
 

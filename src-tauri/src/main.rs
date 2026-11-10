@@ -11,6 +11,9 @@ mod pelco_camera;
 mod ui_state;
 #[cfg(feature = "visca")]
 mod visca;
+#[cfg(feature = "visca")]
+#[allow(dead_code)] // The UI does not select VISCA until hardware validation.
+mod visca2;
 
 use crate::{
     camera::{CameraEvent, Direction, Zoom},
