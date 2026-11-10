@@ -6,6 +6,7 @@ extern crate pretty_env_logger;
 
 mod camera;
 mod error;
+#[cfg(feature = "pelco")]
 mod pelco_camera;
 mod ui_state;
 #[cfg(feature = "visca")]
