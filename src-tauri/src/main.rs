@@ -15,15 +15,6 @@ mod visca;
 #[allow(dead_code)] // The UI does not select VISCA until hardware validation.
 mod visca2;
 
-use crate::{
-    camera::{CameraEvent, Direction, Zoom},
-    error::Result,
-    ui_state::{
-        CameraEventSenderState, PortChangeLock, UIState, UIStateEvent, initialize_ui_state,
-        publish_camera_event, set_ui_state_session, shutdown_ui_state, stop_ui_state_motion,
-        with_ui, with_ui_emit,
-    },
-};
 use log::debug;
 #[cfg(target_os = "macos")]
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
@@ -32,6 +23,24 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 use tauri_plugin_window_state::StateFlags;
 use tokio::sync::mpsc;
+
+use crate::{
+    camera::{CameraEvent, Direction, Zoom},
+    error::Result,
+    ui_state::{
+        CameraEventSenderState,
+        PortChangeLock,
+        UIState,
+        UIStateEvent,
+        initialize_ui_state,
+        publish_camera_event,
+        set_ui_state_session,
+        shutdown_ui_state,
+        stop_ui_state_motion,
+        with_ui,
+        with_ui_emit,
+    },
+};
 
 fn open_settings_window(app: &tauri::AppHandle) -> Result<()> {
     if let Some(window) = app.get_webview_window("settings") {

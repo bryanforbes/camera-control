@@ -54,6 +54,7 @@ local frontend = new Mapping {
 
 local backend = new Mapping {
   ["rustfmt"] = (Builtins.rustfmt) {
+    prefix = List("mise", "-E", "fmt", "exec", "rust@nightly", "--")
     check = new Command {
       argv = List("rustfmt", "--check", "{{files}}")
     }

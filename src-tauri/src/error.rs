@@ -1,7 +1,8 @@
-use crate::camera::Error as CameraError;
 use serde::Serialize;
 use specta::Type;
 use thiserror::Error as ThisError;
+
+use crate::camera::Error as CameraError;
 
 #[derive(ThisError, Debug, Serialize, Type)]
 #[serde(tag = "type", content = "data")]

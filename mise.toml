@@ -1,17 +1,15 @@
 [tools]
-"cargo:tauri-cli" = "2.12.4"
 hk = { version = "2.11.1", workflow = "release.yml" }
+pkl = "0.33.0"
 jactionlint = { version = "v2.5.0", workflow = "release.yaml" }
 node = "26.13.0"
-pkl = "0.33.0"
 pnpm = "12.18.0"
-
-[tools.rust]
-version = "stable"
-components = ["clippy"]
+rust = { version = "stable", components = ["clippy"] }
+"cargo:tauri-cli" = "2.12.4"
 
 [hooks]
 postinstall = '''
+mise -E fmt --no-hooks --locked install rust || exit $?
 mise run pnpm-install
 hk install --mise
 '''

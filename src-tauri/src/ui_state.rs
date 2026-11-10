@@ -1,19 +1,31 @@
-use crate::{
-    camera::{
-        CameraAction, CameraEvent, CameraEventSender, CameraHandle, CameraMotion, CameraSession,
-        CameraSessionBuilder, CameraSessionResult, CommandOutcome, MotionHandle, PendingMotion,
-        PendingMotionResult, SessionId,
-    },
-    error::{Error, Result},
-    pelco_camera::PelcoCamera,
-};
+use std::sync::Mutex;
+
 use serde::Serialize;
 use specta::Type;
-use std::sync::Mutex;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 use tauri_specta::Event;
 use uuid::Uuid;
+
+use crate::{
+    camera::{
+        CameraAction,
+        CameraEvent,
+        CameraEventSender,
+        CameraHandle,
+        CameraMotion,
+        CameraSession,
+        CameraSessionBuilder,
+        CameraSessionResult,
+        CommandOutcome,
+        MotionHandle,
+        PendingMotion,
+        PendingMotionResult,
+        SessionId,
+    },
+    error::{Error, Result},
+    pelco_camera::PelcoCamera,
+};
 
 #[derive(Serialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -383,13 +395,6 @@ pub async fn shutdown_ui_state<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> 
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::camera::Error as CameraError;
-    use crate::camera::{
-        CameraAction, CameraSessionAdapter, CommandOutcome, CommandResult, Direction,
-    };
-    use serde_json::{Value, json, to_value};
-    use serialport::{SerialPortInfo, SerialPortType};
     use std::{
         fs,
         path::Path,
@@ -397,12 +402,25 @@ mod tests {
         task::{Context, Poll, Waker},
         time::Duration,
     };
+
+    use serde_json::{Value, json, to_value};
+    use serialport::{SerialPortInfo, SerialPortType};
     use tauri::{
         Listener,
         test::{MockRuntime, mock_builder, mock_context, noop_assets},
     };
     use test_case::test_case;
     use tokio::sync::{mpsc, oneshot};
+
+    use super::*;
+    use crate::camera::{
+        CameraAction,
+        CameraSessionAdapter,
+        CommandOutcome,
+        CommandResult,
+        Direction,
+        Error as CameraError,
+    };
 
     type Calls = Arc<Mutex<Vec<String>>>;
 
@@ -1159,9 +1177,10 @@ mod tests {
     }
 
     mod event_publication {
+        use test_case::test_case;
+
         use super::*;
         use crate::camera::{CameraEvent, CameraMotion, Direction, Zoom};
-        use test_case::test_case;
 
         struct EventAdapter {
             name: String,

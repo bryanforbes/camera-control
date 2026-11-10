@@ -1,14 +1,16 @@
-use super::error::{Error, Result};
-use serde::{Deserialize, Serialize};
-use specta::Type;
 use std::sync::{
     Arc,
     atomic::{AtomicU64, Ordering},
 };
+
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use tokio::sync::{
     mpsc::{self, error::TrySendError},
     oneshot,
 };
+
+use super::error::{Error, Result};
 
 #[derive(Copy, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "lowercase")]
@@ -240,9 +242,11 @@ impl CameraHandle {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::time::Duration;
+
     use test_case::test_case;
+
+    use super::*;
 
     fn channels(
         capacity: usize,
