@@ -7,8 +7,9 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Cache verified mise downloads
-      uses: actions/cache@v6.1.0
+    - name: Restore verified mise downloads
+      id: mise-downloads
+      uses: actions/cache/restore@v6.1.0
       if: github.ref_type != 'tag'
       with:
         path: ${{ runner.temp }}/mise-cache/downloads-cas
@@ -21,20 +22,32 @@ runs:
       with:
         cache: false
 
+    - name: Save verified mise downloads
+      uses: actions/cache/save@v6.1.0
+      if: github.ref_type != 'tag' && steps.mise-downloads.outputs.cache-hit != 'true'
+      with:
+        path: ${{ runner.temp }}/mise-cache/downloads-cas
+        key: ${{ steps.mise-downloads.outputs.cache-primary-key }}
+
     - name: Locate pnpm store
       if: github.ref_type != 'tag'
       id: pnpm-store
       shell: bash
       run: |
         store_path="$(pnpm store path)"
+        pnpm_version="$(pnpm --version)"
         printf 'path=%s\n' "${store_path%$'\r'}" >> "$GITHUB_OUTPUT"
+        printf 'version=%s\n' "${pnpm_version%$'\r'}" >> "$GITHUB_OUTPUT"
 
-    - name: Cache pnpm store
-      uses: actions/cache@v6.1.0
+    - name: Restore pnpm store
+      id: pnpm-cache
+      uses: actions/cache/restore@v6.1.0
       if: github.ref_type != 'tag'
       with:
         path: ${{ steps.pnpm-store.outputs.path }}
-        key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'mise.lock') }}
+        key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-store.outputs.version }}-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ steps.pnpm-store.outputs.version }}-
 
     - name: Install dependencies (ubuntu only)
       if: startsWith(inputs.runner-platform, 'ubuntu-')
@@ -55,3 +68,10 @@ runs:
     - name: Install frontend dependencies
       shell: bash
       run: mise pnpm-install --frozen-lockfile
+
+    - name: Save pnpm store
+      uses: actions/cache/save@v6.1.0
+      if: github.ref_type != 'tag' && steps.pnpm-cache.outputs.cache-hit != 'true'
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: ${{ steps.pnpm-cache.outputs.cache-primary-key }}

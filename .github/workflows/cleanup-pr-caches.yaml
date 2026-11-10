@@ -1,0 +1,27 @@
+name: Cleanup PR caches
+on:
+  pull_request_target: # jactionlint ignore=dangerous-triggers
+    types: [closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Delete caches for the closed PR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CACHE_REF: refs/pull/${{ github.event.number }}/merge
+        run: |
+          cache_ids="$(gh api --paginate --method GET "repos/$GITHUB_REPOSITORY/actions/caches" \
+            -f "ref=$CACHE_REF" -F per_page=100 --jq '.actions_caches[].id')"
+          for cache_id in $cache_ids; do
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/caches/$cache_id"
+          done
