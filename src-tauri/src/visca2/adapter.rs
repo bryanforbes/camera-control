@@ -6,14 +6,23 @@ use std::{
 use serialport::SerialPort;
 use thiserror::Error as ThisError;
 
-use crate::camera::{
-    CameraAction, CameraMotion, CameraSessionAdapter, CameraSessionBuilder, CameraSessionResult,
-    CommandOutcome, CommandResult, Direction, Error, RequestLane, Result, Zoom as CameraZoom,
-};
-
 use super::{
     codec::{AxisDirection, Command, ReplyError, ReplyKind, Zoom},
     transport::Transport,
+};
+use crate::camera::{
+    CameraAction,
+    CameraMotion,
+    CameraSessionAdapter,
+    CameraSessionBuilder,
+    CameraSessionResult,
+    CommandOutcome,
+    CommandResult,
+    Direction,
+    Error,
+    RequestLane,
+    Result,
+    Zoom as CameraZoom,
 };
 
 const IO_TIMEOUT: Duration = Duration::from_millis(10);

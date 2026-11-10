@@ -1,10 +1,18 @@
-use crate::camera::{
-    CameraAction, CameraMotion, CameraSessionAdapter, CommandOutcome, CommandResult, Direction,
-    Result, Zoom,
-};
+use std::{fmt::Debug, io};
+
 use pelcodrs::{Direction as PelcoDirection, Message, MessageBuilder, Speed};
 use serialport::SerialPort;
-use std::{fmt::Debug, io};
+
+use crate::camera::{
+    CameraAction,
+    CameraMotion,
+    CameraSessionAdapter,
+    CommandOutcome,
+    CommandResult,
+    Direction,
+    Result,
+    Zoom,
+};
 
 trait PelcoPort: Debug + Send {
     fn name(&self) -> Option<String>;
@@ -98,13 +106,16 @@ impl CameraSessionAdapter for PelcoCamera {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::camera::Error;
     use std::sync::{
-        Arc, Mutex,
+        Arc,
+        Mutex,
         atomic::{AtomicBool, Ordering},
     };
+
     use test_case::test_case;
+
+    use super::*;
+    use crate::camera::Error;
 
     #[derive(Debug, Default)]
     struct RecordingPort {

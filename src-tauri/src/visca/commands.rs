@@ -1,5 +1,6 @@
 use super::{
-    Result, ViscaError,
+    Result,
+    ViscaError,
     packet::{RequestCategory, Response, ViscaAction, ViscaCommand, ViscaInquiry},
 };
 
@@ -240,11 +241,11 @@ impl ViscaAction for Move {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use crate::visca::InquiryRequestBuilder;
     use deku::{DekuContainerRead, DekuContainerWrite};
     use test_case::test_case;
+
+    use super::*;
+    use crate::visca::InquiryRequestBuilder;
 
     fn matches_bytes(expected: &'static [u8]) -> impl Fn(Result<Vec<u8>>) {
         move |actual| match actual {

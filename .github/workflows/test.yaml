@@ -52,6 +52,10 @@ jobs:
         with:
           runner-platform: ${{ matrix.platform }}
 
+      - name: Install nightly rustfmt
+        if: startsWith(matrix.platform, 'ubuntu-')
+        run: mise -E ci,fmt --locked install rust
+
       - name: Lint files (ubuntu only)
         if: startsWith(matrix.platform, 'ubuntu-')
         run: |

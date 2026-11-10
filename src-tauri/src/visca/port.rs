@@ -5,7 +5,13 @@ use log::debug;
 use serialport::SerialPort;
 
 use super::{
-    InquiryRequestBuilder, Request, Response, ResponseKind, Result, ViscaAction, ViscaError,
+    InquiryRequestBuilder,
+    Request,
+    Response,
+    ResponseKind,
+    Result,
+    ViscaAction,
+    ViscaError,
     ViscaInquiry,
 };
 

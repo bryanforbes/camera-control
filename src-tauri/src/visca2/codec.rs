@@ -176,8 +176,9 @@ impl<'a> Reply<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use test_case::test_case;
+
+    use super::*;
 
     #[test_case(AxisDirection::Stop, AxisDirection::Negative, [3, 1])]
     #[test_case(AxisDirection::Stop, AxisDirection::Positive, [3, 2])]

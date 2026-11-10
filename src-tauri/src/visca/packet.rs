@@ -1,5 +1,6 @@
-use super::Result;
 use deku::prelude::*;
+
+use super::Result;
 
 #[derive(Debug, PartialEq, DekuRead, DekuWrite)]
 pub struct Header {
@@ -213,11 +214,10 @@ pub trait ViscaInquiry: ViscaCommand + Sized {
 
 #[cfg(test)]
 mod tests {
-    use crate::visca::ViscaError;
+    use test_case::test_case;
 
     use super::*;
-
-    use test_case::test_case;
+    use crate::visca::ViscaError;
 
     fn matches_bytes(expected: &'static [u8]) -> impl Fn(Result<Vec<u8>>) {
         move |actual| match actual {

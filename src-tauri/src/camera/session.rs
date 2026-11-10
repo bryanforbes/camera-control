@@ -1,13 +1,19 @@
-use super::{
-    error::{Error, Result},
-    handle::{
-        CameraAction, CameraHandle, CameraRequest, CommandOutcome, CommandResult, MotionId,
-        RequestAction,
-    },
-};
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
+
+use super::{
+    error::{Error, Result},
+    handle::{
+        CameraAction,
+        CameraHandle,
+        CameraRequest,
+        CommandOutcome,
+        CommandResult,
+        MotionId,
+        RequestAction,
+    },
+};
 
 #[derive(Default)]
 struct MotionTracker {
@@ -366,18 +372,22 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::super::handle::{CameraMotion, Direction, PendingMotion, Zoom};
-    use super::*;
-    use std::sync::Mutex;
     use std::{
         sync::{
             Arc,
+            Mutex,
             atomic::{AtomicBool, Ordering},
         },
         task::{Context, Poll, Waker},
         time::Duration,
     };
+
     use test_case::test_case;
+
+    use super::{
+        super::handle::{CameraMotion, Direction, PendingMotion, Zoom},
+        *,
+    };
 
     fn run<F: Future>(future: F) -> F::Output {
         tauri::async_runtime::block_on(async {
