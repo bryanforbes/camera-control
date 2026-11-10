@@ -38,6 +38,15 @@ local svelte_check = new Step {
   depends = List("sveltekit-sync")
 }
 
+local tsc_check = new Step {
+  glob =
+    Regex(#"^(?:[^/]+\.(?:ts|js)|tsconfig\.(?:node|base)\.json|package\.json|pnpm-lock\.yaml)$"#)
+  check = new CommandSpec {
+    command = "tsc --noEmit -p tsconfig.node.json --composite false --incremental false"
+    effect = "read"
+  }
+}
+
 local frontend = new Mapping {
   ["sveltekit-sync"] = svelte_kit_sync
   ["eslint"] = (Builtins.eslint) {
@@ -48,6 +57,7 @@ local frontend = new Mapping {
     }
   }
   ["svelte-check"] = svelte_check
+  ["tsc-check"] = tsc_check
   ["prettier"] = Builtins.prettier
   ["stylelint"] = Builtins.stylelint
 }

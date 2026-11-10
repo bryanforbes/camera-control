@@ -5,9 +5,22 @@ import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwind from '@tailwindcss/vite';
+import nodePath from 'node:path';
+import { isMainThread } from 'node:worker_threads';
 import { defineConfig, type ServerOptions } from 'vite';
+import checker from 'vite-plugin-checker';
 
 const host = process.env.TAURI_DEV_HOST ?? '';
+
+const watchedDirectories = new Set(['src']);
+const watchedFiles = new Set([
+  'vite.config.ts',
+  'package.json',
+  'pnpm-lock.yaml',
+  'tsconfig.json',
+  'tsconfig.base.json',
+  'tsconfig.node.json',
+]);
 
 const server: ServerOptions = {
   // tauri expects a fixed port, fail if that port is not available
@@ -15,7 +28,17 @@ const server: ServerOptions = {
   strictPort: true,
   host: host || false,
   watch: {
-    ignored: ['**/src-tauri/**'],
+    ignored(file) {
+      const path = nodePath.relative(import.meta.dirname, file);
+      if (path === '') return false;
+
+      const [topLevel] = path.split(nodePath.sep);
+      return (
+        !watchedDirectories.has(topLevel) &&
+        !watchedFiles.has(path) &&
+        !/^\.env(?:\.[^/\\]+)?$/.test(path)
+      );
+    },
   },
 };
 
@@ -30,6 +53,14 @@ if (host) {
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    // Svelte Check loads this config again from its worker.
+    isMainThread &&
+      checker({
+        enableBuild: false,
+        svelteCheck: {
+          flags: '--tsconfig ./tsconfig.json',
+        },
+      }),
     tailwind(),
     sveltekit({
       extensions: ['.svelte'],

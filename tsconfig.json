@@ -9,5 +9,5 @@
     "plugins": [{ "name": "typescript-svelte-plugin", "enabled": true }]
   },
   "references": [{ "path": "./tsconfig.node.json" }],
-  "include": ["src", "vite.config.ts"]
+  "include": ["src"]
 }
