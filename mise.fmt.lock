@@ -3,7 +3,7 @@
 lockfile_version = 4
 
 [[tools.rust]]
-version = "nightly-2026-11-10"
+version = "nightly-2026-11-11"
 backend = "core:rust"
 specifiers = ["nightly"]
 
