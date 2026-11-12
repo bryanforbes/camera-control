@@ -1,5 +1,5 @@
 [tools]
-hk = { version = "2.11.1", workflow = "release.yml" }
+hk = { version = "2.12.0", workflow = "release.yml" }
 pkl = "0.33.0"
 jactionlint = { version = "v2.5.0", workflow = "release.yaml" }
 node = "26.13.0"
