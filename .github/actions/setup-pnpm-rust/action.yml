@@ -16,7 +16,7 @@ runs:
         key: mise-downloads-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.lock', 'mise.macos.lock') }}
 
     - name: Set up tools with mise
-      uses: jdx/mise-action@v5.2.7
+      uses: jdx/mise-action@v5.2.8
       env:
         MISE_CACHE_DIR: ${{ runner.temp }}/mise-cache
       with:
