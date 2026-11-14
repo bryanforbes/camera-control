@@ -24,9 +24,9 @@ tauri-plugin-window-state = "=2.5.0"
 thiserror = "=2.0.21"
 log = "=0.4.35"
 pretty_env_logger = "=0.5.0"
-specta = "=2.0.0-rc.26"
-specta-typescript = "=0.0.13"
-tauri-specta = { version = "=2.0.0-rc.26", features = ["derive", "typescript"] }
+specta = "=2.0.0-rc.28"
+specta-typescript = "=0.0.15"
+tauri-specta = { version = "=2.0.0-rc.28", features = ["derive", "typescript"] }
 tokio = "=1.54.1"
 uuid = { version = "=1.29.1", features = ["v4"] }
 pelcodrs = { version = "=0.2.1", optional = true }
