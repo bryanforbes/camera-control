@@ -3,9 +3,9 @@
 lockfile_version = 4
 
 [[tools."cargo:tauri-cli"]]
-version = "2.12.4"
+version = "2.12.5"
 backend = "cargo:tauri-cli"
-specifiers = ["2.12.4"]
+specifiers = ["2.12.5"]
 
 [[tools.hk]]
 version = "2.11.1"
