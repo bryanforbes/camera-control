@@ -18,9 +18,9 @@
     "#lib/*": "./src/lib/*"
   },
   "dependencies": {
-    "@tauri-apps/api": "2.12.4",
+    "@tauri-apps/api": "2.12.5",
     "@tauri-apps/plugin-dialog": "2.8.4",
-    "@tauri-apps/plugin-store": "2.5.0",
+    "@tauri-apps/plugin-store": "2.5.1",
     "@tauri-apps/plugin-updater": "2.14.1",
     "@tauri-apps/plugin-window-state": "2.5.0"
   },
@@ -34,7 +34,7 @@
     "@sveltejs/load-config": "0.2.3",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@tailwindcss/vite": "4.3.5",
-    "@tauri-apps/cli": "2.12.4",
+    "@tauri-apps/cli": "2.12.5",
     "@tsconfig/node26": "26.0.1",
     "@tsconfig/recommended": "1.0.13",
     "@types/eslint": "9.6.1",
