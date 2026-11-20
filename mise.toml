@@ -1,7 +1,7 @@
 [tools]
 hk = { version = "2.11.1", workflow = "release.yml" }
 pkl = "0.33.0"
-jactionlint = { version = "v2.5.0", workflow = "release.yaml" }
+jactionlint = { version = "v2.6.0", workflow = "release.yaml" }
 node = "26.13.0"
 pnpm = "12.18.0"
 rust = { version = "stable", components = ["clippy"] }
