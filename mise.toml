@@ -3,7 +3,7 @@ hk = { version = "2.13.0", workflow = "release.yml" }
 pkl = "0.33.0"
 jactionlint = { version = "v2.6.0", workflow = "release.yaml" }
 node = "26.13.0"
-pnpm = "12.18.0"
+pnpm = "12.21.0"
 rust = { version = "stable", components = ["clippy"] }
 "cargo:tauri-cli" = "2.12.5"
 
