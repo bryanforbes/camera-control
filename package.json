@@ -34,7 +34,7 @@
     "@sveltejs/load-config": "0.2.3",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@tailwindcss/vite": "4.3.5",
-    "@tauri-apps/cli": "2.12.5",
+    "@tauri-apps/cli": "2.12.6",
     "@tsconfig/node26": "26.0.2",
     "@tsconfig/recommended": "1.0.14",
     "@types/eslint": "9.6.1",

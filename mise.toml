@@ -5,7 +5,7 @@ jactionlint = { version = "v2.6.0", workflow = "release.yaml" }
 node = "26.13.0"
 pnpm = "12.23.0"
 rust = { version = "stable", components = ["clippy"] }
-"cargo:tauri-cli" = "2.12.5"
+"cargo:tauri-cli" = "2.12.6"
 
 [hooks]
 postinstall = '''
