@@ -172,16 +172,16 @@
       </select>
     </label>
 
-    <button type="button" onclick={() => void commands.refreshPorts()}
-      ><Refresh class="mt-1 mb-1 size-3" /></button
-    >
+    <button type="button" onclick={() => void commands.refreshPorts()}>
+      <Refresh class="mt-1 mb-1 size-3" />
+    </button>
   </div>
 </form>
 
 {#snippet PresetButton(preset: number, name: string)}
-  <button type="button" onclick={() => void confirmSetPreset(preset, name)}
-    >Set {name}</button
-  >
+  <button type="button" onclick={() => void confirmSetPreset(preset, name)}>
+    Set {name}
+  </button>
 {/snippet}
 
 {#snippet DirectionButton(
