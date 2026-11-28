@@ -12,6 +12,8 @@ import checker from 'vite-plugin-checker';
 
 const host = process.env.TAURI_DEV_HOST ?? '';
 
+console.log(`Vite config: host=${host}`);
+
 const watchedDirectories = new Set(['src']);
 const watchedFiles = new Set([
   'vite.config.ts',
@@ -27,6 +29,14 @@ const server: ServerOptions = {
   port: 1420,
   strictPort: true,
   host: host || false,
+  ws:
+    host ?
+      {
+        protocol: 'ws',
+        host,
+        port: 1420,
+      }
+    : undefined,
   watch: {
     ignored(file) {
       const path = nodePath.relative(import.meta.dirname, file);
@@ -41,14 +51,6 @@ const server: ServerOptions = {
     },
   },
 };
-
-if (host) {
-  server.hmr = {
-    protocol: 'ws',
-    host,
-    port: 1421,
-  };
-}
 
 // https://vitejs.dev/config/
 export default defineConfig({
